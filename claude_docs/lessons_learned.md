@@ -479,3 +479,25 @@ for party_id in affected_party_ids:
 **What happened:** After implementing `leaderboard_service.py`, the review of `02_BACKEND_API_SPEC.md` caught the API-layer changes, but `03_SYNC_WORKER_SPEC.md` also referenced the same leaderboard logic — as raw SQL that was now encapsulated in the service. An agent implementing the sync worker from that spec alone would have duplicated the SQL rather than called the service.
 
 **Rule:** After implementing a service, check every spec file that references the same domain — not just the API spec. For this project, `03_SYNC_WORKER_SPEC.md` is a secondary consumer of anything in `services/` that touches scoring or leaderboards. Update it to reference the service function and mark the SQL as "reference only."
+
+---
+
+*Lesson 36 captured from the prod debugging session (2026-06-10).*
+
+---
+
+## 36. Vite loads `.env.local` in all modes — mock-auth env vars can leak into production builds
+
+**What happened:** `.env.local` contained `VITE_MOCK_AUTH=true` and `VITE_DEV_USER_ID=00000000-0000-0000-0000-000000000001` for local development. The deploy script regenerates `.env.production` with real infra URLs but does not define `VITE_MOCK_AUTH`. Because Vite loads `.env.local` in every mode — including `vite build --mode production` — these vars bled into the prod bundle. The frontend entered mock-auth mode, skipped Cognito entirely, and sent the dev UUID as the Bearer token to the production API, which returned 401 for every request.
+
+**Two fixes applied:**
+
+1. **Gate `MOCK_AUTH` on `import.meta.env.DEV`** in `frontend/src/lib/devAuth.ts`:
+   ```ts
+   export const MOCK_AUTH = import.meta.env.DEV && import.meta.env.VITE_MOCK_AUTH === 'true'
+   ```
+   `import.meta.env.DEV` is statically `false` in production builds, so Vite dead-code-eliminates the entire mock path from the bundle. This makes it impossible for mock auth to ship regardless of env-file layering.
+
+2. **Rename `.env.local` → `.env.development.local`** — Vite only loads `*.development.*` files in dev mode (`npm run dev`), so local mock settings are never visible to production builds. Local dev is unaffected.
+
+**Rule:** Never put mock-auth vars in `.env.local`; use `.env.development.local`. Always gate dev-only feature flags on `import.meta.env.DEV` as a second line of defence.
