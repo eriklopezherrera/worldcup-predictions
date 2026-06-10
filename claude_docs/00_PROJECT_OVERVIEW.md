@@ -7,7 +7,7 @@ A web application (PWA) where users predict scores for football matches (initial
 1. Register/login (email or username + password via AWS Cognito)
 2. See upcoming matches and submit score predictions
 3. Predictions lock automatically at kickoff time
-4. After matches finish, scores are synced from external API and points are awarded
+4. After matches finish, an admin enters the final score (admin endpoint/page) and points are awarded
 5. View personal and party leaderboards
 6. Create or join parties via invite code/link
 
@@ -21,7 +21,7 @@ A web application (PWA) where users predict scores for football matches (initial
 - **Auth:** AWS Cognito User Pool (JWT tokens)
 - **Deployment:** AWS Lambda + API Gateway (HTTP API)
 - **Infra as Code:** AWS CDK (Python)
-- **Package manager:** uv (for fast installs in Lambda layers)
+- **Package manager:** uv locally; Lambda assets are bundled with pip from `backend/requirements.txt`
 
 ### Frontend
 - **Framework:** React 18 with Vite
@@ -33,21 +33,20 @@ A web application (PWA) where users predict scores for football matches (initial
 - **Routing:** React Router v6
 - **Hosting:** S3 + CloudFront
 
-### External Data
-- **Primary API:** api-football.com (via RapidAPI) for fixtures and live scores
-- **Sync mechanism:** EventBridge scheduled rule → Lambda worker
+### Tournament Data
+- **Source files:** `backend/worldcup2026_teams.json` (48 teams) and `backend/worldcup2026_matches.json` (104 matches), loaded by `app/workers/populate_wc2026_teams.py` / `populate_wc2026_matches.py`
+- **Results:** entered manually by an admin via `PUT /admin/matches/{id}/result` (scores predictions + recomputes leaderboards)
+- There is **no external API sync**. Legacy api-football sync code (`sync_worker.py`, `football_api_client.py`, `fixture_sync.py`, `score_sync.py`) remains in the repo but is unused and not deployed.
 
 ### AWS Services Used
-- Lambda (API + sync worker)
+- Lambda (API + ops function for migrations/data loads)
 - API Gateway (HTTP API)
 - RDS PostgreSQL
 - ElastiCache Redis
 - S3 (frontend hosting + static assets)
 - CloudFront (CDN)
 - Cognito (auth)
-- EventBridge (scheduled sync jobs)
-- SES (invite emails + transactional email)
-- Secrets Manager (API keys, DB credentials)
+- Secrets Manager (DB credentials)
 - VPC (RDS + ElastiCache inside private subnet)
 - CDK (infrastructure as code)
 
@@ -69,13 +68,16 @@ worldcup-predictions/
 │   │   │   ├── prediction.py     #   Prediction
 │   │   │   └── leaderboard.py    #   LeaderboardSnapshot
 │   │   ├── schemas/              # Pydantic request/response schemas
-│   │   ├── routers/              # FastAPI route handlers
+│   │   ├── routers/              # FastAPI route handlers (incl. admin.py)
 │   │   ├── services/             # Business logic layer
-│   │   ├── workers/              # Background/sync jobs
+│   │   ├── workers/              # Data loads, make_admin, ops Lambda handler
 │   │   └── utils/
 │   ├── migrations/               # Alembic migrations (env.py + versions/)
 │   ├── tests/
+│   ├── worldcup2026_teams.json   # WC2026 team list (source of truth)
+│   ├── worldcup2026_matches.json # WC2026 match schedule (source of truth)
 │   ├── pyproject.toml
+│   ├── requirements.txt          # Runtime deps for Lambda bundling
 │   └── Dockerfile                # For local dev only
 ├── frontend/
 │   ├── src/
@@ -100,9 +102,11 @@ worldcup-predictions/
 │   │   ├── networking_stack.py   # VPC, subnets, security groups
 │   │   ├── data_stack.py         # RDS, ElastiCache
 │   │   ├── auth_stack.py         # Cognito
-│   │   ├── api_stack.py          # Lambda, API Gateway
-│   │   ├── frontend_stack.py     # S3, CloudFront
-│   │   └── sync_stack.py         # EventBridge + sync Lambda
+│   │   ├── api_stack.py          # API Lambda + ops Lambda, API Gateway
+│   │   └── frontend_stack.py     # S3, CloudFront
+│   ├── scripts/
+│   │   ├── deploy.sh             # Two-pass full deploy
+│   │   └── migrate.sh            # Invoke ops Lambda (migrate/seed/make_admin)
 │   ├── requirements.txt
 │   └── cdk.json
 ├── docker-compose.yml            # Local dev (postgres + redis)
@@ -120,5 +124,5 @@ Predictions lock at `match.kickoff_utc`. Any edit attempt after this timestamp r
 
 ## Environment Targets
 - `dev` — local docker-compose (postgres + redis), no AWS required
-- `staging` — AWS account, cheap tier, used for testing
-- `prod` — AWS account, same stack, production data
+- `staging` — AWS account, cheap tier, used for testing (not deployed)
+- `prod` — **live** since 2026-06-10: https://deickez3ug2pm.cloudfront.net (account 967512078951, us-east-1, profile `worldcup`)

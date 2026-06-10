@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { format } from 'date-fns'
 import { Clock, Lock, Star, Target, Trophy } from 'lucide-react'
 import { useTournaments } from '../hooks/useTournaments'
@@ -9,6 +9,7 @@ import type { Match, MatchStage } from '../types'
 type FilterTab = 'all' | 'group' | 'knockout' | 'pending' | 'scored'
 
 const KNOCKOUT_STAGES: MatchStage[] = [
+  'round_of_32',
   'round_of_16',
   'quarter_final',
   'semi_final',
@@ -29,13 +30,30 @@ export default function MyPredictionsPage() {
   const activeTournament = tournaments.find(t => t.status === 'active') ?? tournaments[0]
 
   const [selectedId, setSelectedId] = useState<string | undefined>(undefined)
-  const [activeTab, setActiveTab] = useState<FilterTab>('all')
+  // 'group' is the fallback until the tournament loads; the server-configured
+  // default (activeTournament.default_prediction_stage) is applied on first
+  // load via the effect below, unless the user has already picked a tab.
+  const [activeTab, setActiveTab] = useState<FilterTab>('group')
+  const userPickedTab = useRef(false)
 
   useEffect(() => {
     if (!selectedId && activeTournament?.id) {
       setSelectedId(activeTournament.id)
     }
   }, [activeTournament?.id, selectedId])
+
+  // Seed the default tab from the active tournament once it resolves, but never
+  // override a tab the user has manually selected.
+  useEffect(() => {
+    if (!userPickedTab.current && activeTournament?.default_prediction_stage) {
+      setActiveTab(activeTournament.default_prediction_stage)
+    }
+  }, [activeTournament?.default_prediction_stage])
+
+  const handleTabClick = (tab: FilterTab) => {
+    userPickedTab.current = true
+    setActiveTab(tab)
+  }
 
   const { data: matches = [], isLoading } = useMatches(selectedId)
   const { data: summary } = usePredictionSummary()
@@ -110,7 +128,7 @@ export default function MyPredictionsPage() {
         {TABS.map(tab => (
           <button
             key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
+            onClick={() => handleTabClick(tab.id)}
             className={`px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors flex-shrink-0 ${
               activeTab === tab.id
                 ? 'bg-emerald-600 text-white'
@@ -179,7 +197,7 @@ function PredictionCard({ match }: { match: Match }) {
       <div className="flex items-center gap-2">
         {/* Home */}
         <div className="flex items-center gap-2 flex-1 min-w-0">
-          {match.home_team.logo_url && (
+          {match.home_team?.logo_url && (
             <img
               src={match.home_team.logo_url}
               alt=""
@@ -187,7 +205,7 @@ function PredictionCard({ match }: { match: Match }) {
             />
           )}
           <span className="text-sm text-white font-medium truncate">
-            {match.home_team.name}
+            {match.home_team?.name ?? 'TBD'}
           </span>
         </div>
 
@@ -210,9 +228,9 @@ function PredictionCard({ match }: { match: Match }) {
         {/* Away */}
         <div className="flex items-center gap-2 flex-1 min-w-0 justify-end">
           <span className="text-sm text-white font-medium truncate text-right">
-            {match.away_team.name}
+            {match.away_team?.name ?? 'TBD'}
           </span>
-          {match.away_team.logo_url && (
+          {match.away_team?.logo_url && (
             <img
               src={match.away_team.logo_url}
               alt=""

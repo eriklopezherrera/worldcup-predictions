@@ -52,6 +52,7 @@ async def get_tournament(
         status=tournament.status,
         logo_url=tournament.logo_url,
         country=tournament.country,
+        default_prediction_stage=tournament.default_prediction_stage,
         teams=teams,
     )
 

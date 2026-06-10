@@ -25,7 +25,7 @@ This starts PostgreSQL on port 5432 and Redis on port 6379.
 
 ```bash
 cd backend
-uv venv
+uv venv # creates venv
 .venv\Scripts\activate        # Windows
 # source .venv/bin/activate   # macOS / Linux
 uv pip install -e ".[dev]"

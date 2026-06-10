@@ -3,6 +3,11 @@ import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
+  define: {
+    // amazon-cognito-identity-js (via the `buffer` polyfill) references Node's
+    // `global`, which doesn't exist in the browser. Map it to `globalThis`.
+    global: 'globalThis',
+  },
   plugins: [
     react(),
     VitePWA({

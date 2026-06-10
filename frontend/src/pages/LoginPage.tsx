@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Globe } from 'lucide-react'
 import { useAuthStore } from '../stores/authStore'
 
@@ -9,13 +9,17 @@ export default function LoginPage() {
   const [error, setError] = useState('')
   const { login, isLoading } = useAuthStore()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  // Only honour same-origin relative paths to avoid open-redirects.
+  const redirectParam = searchParams.get('redirect')
+  const redirectTo = redirectParam?.startsWith('/') ? redirectParam : '/tournaments'
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     setError('')
     try {
       await login(usernameOrEmail, password)
-      navigate('/tournaments', { replace: true })
+      navigate(redirectTo, { replace: true })
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Login failed. Please try again.')
     }

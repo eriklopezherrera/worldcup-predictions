@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import api from '../lib/apiClient'
-import type { Party, PartyMember } from '../types'
+import type { Party, PartyMember, PartyPreview } from '../types'
 
 export function useParties() {
   return useQuery<Party[]>({
@@ -29,7 +29,7 @@ export function usePartyMembers(id: string | undefined) {
 }
 
 export function usePartyPreview(inviteCode: string | undefined) {
-  return useQuery<Party>({
+  return useQuery<PartyPreview>({
     queryKey: ['party-preview', inviteCode],
     queryFn: () => api.get(`/parties/invite/${inviteCode}`).then(r => r.data),
     enabled: !!inviteCode,

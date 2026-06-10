@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class TeamSummary(BaseModel):
@@ -40,3 +40,17 @@ class MatchResponse(BaseModel):
     is_locked: bool
     actual_result: str | None  # "home_win" | "away_win" | "draw" | None
     my_prediction: PredictionInMatch | None
+
+
+class MatchResultRequest(BaseModel):
+    home_score: int = Field(ge=0, le=99)
+    away_score: int = Field(ge=0, le=99)
+
+
+class MatchResultResponse(BaseModel):
+    match_id: uuid.UUID
+    home_score: int
+    away_score: int
+    status: str
+    predictions_scored: int
+    leaderboards_recomputed: int

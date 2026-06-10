@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { useAuthStore } from '../stores/authStore'
+import { MOCK_AUTH, DEV_USER_ID } from './devAuth'
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL as string,
@@ -7,6 +8,12 @@ const api = axios.create({
 })
 
 api.interceptors.request.use((config) => {
+  if (MOCK_AUTH) {
+    if (DEV_USER_ID) {
+      config.headers['X-Dev-User-Id'] = DEV_USER_ID
+    }
+    return config
+  }
   const tokens = useAuthStore.getState().tokens
   if (tokens?.idToken) {
     config.headers.Authorization = `Bearer ${tokens.idToken}`

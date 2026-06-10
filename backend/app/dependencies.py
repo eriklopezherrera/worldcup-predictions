@@ -13,7 +13,7 @@ from app.config import settings
 from app.database import get_db, AsyncSessionLocal  # noqa: F401 — re-export get_db for conftest
 from app.models.user import User
 
-__all__ = ["get_db", "get_redis", "get_current_user"]
+__all__ = ["get_db", "get_redis", "get_current_user", "require_admin"]
 
 
 async def get_redis() -> AsyncGenerator[aioredis.Redis, None]:
@@ -116,3 +116,9 @@ async def get_current_user(
         await db.commit()
 
     return user
+
+
+async def require_admin(current_user: User = Depends(get_current_user)) -> User:
+    if not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Admin privileges required")
+    return current_user

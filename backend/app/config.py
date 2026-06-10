@@ -1,8 +1,14 @@
+import json
+from urllib.parse import quote_plus
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://wcadmin:devpassword@localhost:5433/worldcuppredictions"
+    # When set (deployed environments), DATABASE_URL is built from this
+    # Secrets Manager secret at cold start instead of the value above.
+    db_secret_arn: str = ""
     redis_url: str = "redis://localhost:6380/0"
     cognito_user_pool_id: str = ""
     cognito_client_id: str = ""
@@ -23,4 +29,20 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env")
 
 
+def _database_url_from_secret(secret_arn: str) -> str:
+    """Build the asyncpg URL from an RDS-managed Secrets Manager secret."""
+    import boto3
+
+    raw = boto3.client("secretsmanager").get_secret_value(SecretId=secret_arn)
+    secret = json.loads(raw["SecretString"])
+    return (
+        f"postgresql+asyncpg://{secret['username']}:{quote_plus(secret['password'])}"
+        f"@{secret['host']}:{secret.get('port', 5432)}"
+        f"/{secret.get('dbname', 'worldcuppredictions')}?ssl=require"
+    )
+
+
 settings = Settings()
+
+if settings.db_secret_arn:
+    settings.database_url = _database_url_from_secret(settings.db_secret_arn)

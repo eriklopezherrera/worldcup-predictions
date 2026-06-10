@@ -1,0 +1,61 @@
+[
+  { "name": "Mexico",                  "short_name": "MEX", "group": "A" },
+  { "name": "South Africa",            "short_name": "RSA", "group": "A" },
+  { "name": "Korea Republic",          "short_name": "KOR", "group": "A" },
+  { "name": "Czechia",                 "short_name": "CZE", "group": "A" },
+
+  { "name": "Canada",                  "short_name": "CAN", "group": "B" },
+  { "name": "Bosnia and Herzegovina",  "short_name": "BIH", "group": "B" },
+  { "name": "Qatar",                   "short_name": "QAT", "group": "B" },
+  { "name": "Switzerland",             "short_name": "SUI", "group": "B" },
+
+  { "name": "Brazil",                  "short_name": "BRA", "group": "C" },
+  { "name": "Morocco",                 "short_name": "MAR", "group": "C" },
+  { "name": "Haiti",                   "short_name": "HAI", "group": "C" },
+  { "name": "Scotland",                "short_name": "SCO", "group": "C" },
+
+  { "name": "United States",           "short_name": "USA", "group": "D" },
+  { "name": "Paraguay",                "short_name": "PAR", "group": "D" },
+  { "name": "Australia",               "short_name": "AUS", "group": "D" },
+  { "name": "Türkiye",                 "short_name": "TUR", "group": "D" },
+
+  { "name": "Germany",                 "short_name": "GER", "group": "E" },
+  { "name": "Curaçao",                 "short_name": "CUW", "group": "E" },
+  { "name": "Côte d'Ivoire",           "short_name": "CIV", "group": "E" },
+  { "name": "Ecuador",                 "short_name": "ECU", "group": "E" },
+
+  { "name": "Netherlands",             "short_name": "NED", "group": "F" },
+  { "name": "Japan",                   "short_name": "JPN", "group": "F" },
+  { "name": "Sweden",                  "short_name": "SWE", "group": "F" },
+  { "name": "Tunisia",                 "short_name": "TUN", "group": "F" },
+
+  { "name": "Belgium",                 "short_name": "BEL", "group": "G" },
+  { "name": "Egypt",                   "short_name": "EGY", "group": "G" },
+  { "name": "Iran",                    "short_name": "IRN", "group": "G" },
+  { "name": "New Zealand",             "short_name": "NZL", "group": "G" },
+
+  { "name": "Spain",                   "short_name": "ESP", "group": "H" },
+  { "name": "Cabo Verde",              "short_name": "CPV", "group": "H" },
+  { "name": "Saudi Arabia",            "short_name": "KSA", "group": "H" },
+  { "name": "Uruguay",                 "short_name": "URU", "group": "H" },
+
+  { "name": "France",                  "short_name": "FRA", "group": "I" },
+  { "name": "Senegal",                 "short_name": "SEN", "group": "I" },
+  { "name": "Iraq",                    "short_name": "IRQ", "group": "I" },
+  { "name": "Norway",                  "short_name": "NOR", "group": "I" },
+
+  { "name": "Argentina",               "short_name": "ARG", "group": "J" },
+  { "name": "Algeria",                 "short_name": "ALG", "group": "J" },
+  { "name": "Austria",                 "short_name": "AUT", "group": "J" },
+  { "name": "Jordan",                  "short_name": "JOR", "group": "J" },
+
+  { "name": "Portugal",                "short_name": "POR", "group": "K" },
+  { "name": "DR Congo",                "short_name": "COD", "group": "K" },
+  { "name": "Uzbekistan",              "short_name": "UZB", "group": "K" },
+  { "name": "Colombia",                "short_name": "COL", "group": "K" },
+
+  { "name": "England",                 "short_name": "ENG", "group": "L" },
+  { "name": "Croatia",                 "short_name": "CRO", "group": "L" },
+  { "name": "Ghana",                   "short_name": "GHA", "group": "L" },
+  { "name": "Panama",                  "short_name": "PAN", "group": "L" }
+]

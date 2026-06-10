@@ -1,7 +1,8 @@
 import { Outlet, NavLink } from 'react-router-dom'
-import { Home, Trophy, BarChart3, Users, User, Globe } from 'lucide-react'
+import { Home, Trophy, BarChart3, Users, User, Globe, ShieldCheck } from 'lucide-react'
+import { useCurrentUser } from '../hooks/useUser'
 
-const navItems = [
+const baseNavItems = [
   { to: '/tournaments', icon: Home, label: 'Home' },
   { to: '/predictions', icon: Trophy, label: 'Predictions' },
   { to: '/leaderboard', icon: BarChart3, label: 'Leaderboard' },
@@ -9,7 +10,12 @@ const navItems = [
   { to: '/profile', icon: User, label: 'Profile' },
 ]
 
+const adminNavItem = { to: '/admin', icon: ShieldCheck, label: 'Admin' }
+
 export default function Layout() {
+  const { data: currentUser } = useCurrentUser()
+  const navItems = currentUser?.is_admin ? [...baseNavItems, adminNavItem] : baseNavItems
+
   return (
     <div className="flex min-h-screen flex-col bg-gray-900 text-gray-100">
       {/* Desktop top nav */}

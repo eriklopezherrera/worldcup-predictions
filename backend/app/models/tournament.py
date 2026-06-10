@@ -19,6 +19,11 @@ class Tournament(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     logo_url: Mapped[Optional[str]] = mapped_column(Text)
     external_id: Mapped[Optional[int]] = mapped_column(Integer, unique=True)
     status: Mapped[str] = mapped_column(String(20), server_default=text("'upcoming'"))
+    # Filter tab shown by default on the predictions page. One of
+    # 'all' | 'group' | 'knockout' (mirrors the stage tabs in MyPredictionsPage).
+    default_prediction_stage: Mapped[str] = mapped_column(
+        String(20), server_default=text("'group'")
+    )
 
 
 class Team(Base, UUIDPrimaryKeyMixin):

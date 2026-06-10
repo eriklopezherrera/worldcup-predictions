@@ -13,11 +13,24 @@ All stacks accept `env_name` parameter: `dev`, `staging`, or `prod`.
 ```
 NetworkingStack
     └── DataStack (needs VPC)
-    └── AuthStack (independent)
-         └── ApiStack (needs VPC, DB, Redis, Cognito)
-         └── SyncStack (needs VPC, DB, API key)
-              └── FrontendStack (needs API Gateway URL)
+AuthStack (independent)
+FrontendStack (independent — S3 + CloudFront only)
+    └── ApiStack (needs VPC, DB, Redis, Cognito, CloudFront domain for CORS)
 ```
+
+Stack names are `worldcup-{env}-{networking|data|auth|frontend|api}`.
+
+> **Note:** the original `SyncStack` (EventBridge + api-football sync worker) was
+> dropped. Tournament data is loaded from `backend/worldcup2026_teams.json` and
+> `backend/worldcup2026_matches.json`, and match results are entered manually via
+> the admin endpoints. Migrations and data loads run through an **ops Lambda**
+> (`worldcup-{env}-ops`, handler `app.workers.ops.handler`) invoked by
+> `scripts/migrate.sh`.
+
+The frontend build bakes in `VITE_API_BASE_URL` + Cognito IDs, so
+`scripts/deploy.sh` is two-pass: deploy all stacks, write
+`frontend/.env.production` from the stack outputs, rebuild, redeploy the
+frontend stack.
 
 ---
 
@@ -32,7 +45,9 @@ Creates:
   - `redis_sg`: inbound 6379 from `lambda_sg` only
 - Exports: `vpc`, `lambda_sg`, `rds_sg`, `redis_sg`, private subnet IDs
 
-**For dev environment:** use only 1 AZ, 1 NAT Gateway to reduce cost.
+All environments use 2 AZs (an RDS subnet group requires two) with a single
+NAT gateway. The Lambda SG also allows outbound 443 (Cognito JWKS, Secrets
+Manager, cognito-idp); DNS to the Amazon-provided resolver bypasses SGs.
 
 ---
 
@@ -42,37 +57,52 @@ File: `infrastructure/stacks/data_stack.py`
 ### RDS PostgreSQL
 ```python
 rds.DatabaseInstance(
-    engine=rds.DatabaseInstanceEngine.postgres(version=rds.PostgresEngineVersion.VER_15),
+    instance_identifier=f"worldcup-{env_name}",
+    engine=rds.DatabaseInstanceEngine.postgres(
+        version=rds.PostgresEngineVersion.of("15", "15")
+    ),
     instance_type=ec2.InstanceType.of(ec2.InstanceClass.T3, ec2.InstanceSize.MICRO),
     vpc=networking.vpc,
     vpc_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS),
     security_groups=[networking.rds_sg],
     database_name="worldcuppredictions",
-    credentials=rds.Credentials.from_generated_secret("db-admin"),
-    deletion_protection=True,         # prod only
-    backup_retention=Duration.days(7),
+    credentials=rds.Credentials.from_generated_secret(
+        "wcadmin", secret_name=f"worldcup/{env_name}/db-admin"
+    ),
+    allocated_storage=20,
+    multi_az=False,
+    deletion_protection=is_prod,
+    removal_policy=RemovalPolicy.RETAIN if is_prod else RemovalPolicy.DESTROY,
+    backup_retention=Duration.days(7 if is_prod else 1),
     storage_encrypted=True,
 )
 ```
+
+RDS PostgreSQL 15 defaults to `rds.force_ssl=1`, so connection URLs need
+`?ssl=require` (handled by `app/config.py`).
 
 Connection string stored in Secrets Manager automatically.
 
 ### ElastiCache Redis
 ```python
 elasticache.CfnReplicationGroup(
+    replication_group_id=f"worldcup-{env_name}",
     replication_group_description="worldcup-cache",
-    num_cache_clusters=1,             # single node for our scale
+    num_cache_clusters=1,              # single node for our scale
+    automatic_failover_enabled=False,  # REQUIRED with 1 node — defaults to on and fails deploy
+    multi_az_enabled=False,
     cache_node_type="cache.t3.micro",
     engine="redis",
     engine_version="7.0",
-    subnet_group_name=subnet_group.ref,
+    cache_subnet_group_name=subnet_group.cache_subnet_group_name,
     security_group_ids=[networking.redis_sg.security_group_id],
     at_rest_encryption_enabled=True,
-    transit_encryption_enabled=True,
+    transit_encryption_enabled=True,   # clients must connect with rediss://
 )
 ```
 
-Outputs: RDS endpoint, Redis endpoint.
+Outputs: RDS endpoint, Redis endpoint. The stack also exposes `redis_url`
+(`rediss://{primary_endpoint}:{port}/0`) and `db_secret` for the ApiStack.
 
 ---
 
@@ -119,66 +149,65 @@ Outputs: `user_pool_id`, `client_id`.
 ## `ApiStack`
 File: `infrastructure/stacks/api_stack.py`
 
-### Lambda Layer (dependencies)
+### Code bundling
+One Docker-bundled asset shared by the API and ops functions (no Lambda layer).
+Requires Docker running locally at synth time:
 ```python
-# Build Lambda layer from backend/requirements.txt
-layer = lambda_.LayerVersion(
-    code=lambda_.Code.from_docker_build(
-        path="../backend",
-        build_args={"PLATFORM": "linux/amd64"},
+code = lambda_.Code.from_asset(
+    "../backend",
+    exclude=[".venv", "venv", "**/__pycache__", ".pytest_cache", "tests", ".env"],
+    bundling=BundlingOptions(
+        image=lambda_.Runtime.PYTHON_3_12.bundling_image,
+        command=["bash", "-c",
+            "pip install -r requirements.txt -t /asset-output"
+            " && cp -r app migrations alembic.ini"
+            " worldcup2026_teams.json worldcup2026_matches.json /asset-output/"],
     ),
-    compatible_runtimes=[lambda_.Runtime.PYTHON_3_12],
 )
 ```
+The bundle includes `migrations/` + the WC2026 JSON files so the ops Lambda can
+run alembic and the data loaders.
 
-### API Lambda Function
+### API Lambda Function (`worldcup-{env}-api`)
+Handler `app.main.handler`, 512MB, 30s timeout, in the VPC private subnets with
+`lambda_sg`. Environment:
 ```python
-api_function = lambda_.Function(
-    runtime=lambda_.Runtime.PYTHON_3_12,
-    handler="app.main.handler",
-    code=lambda_.Code.from_asset("../backend", 
-        bundling=BundlingOptions(
-            image=lambda_.Runtime.PYTHON_3_12.bundling_image,
-            command=["bash", "-c", "pip install -r requirements.txt -t /asset-output && cp -r app /asset-output/"]
-        )
-    ),
-    vpc=networking.vpc,
-    vpc_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS),
-    security_groups=[networking.lambda_sg],
-    timeout=Duration.seconds(30),
-    memory_size=512,
-    environment={
-        "DATABASE_URL": f"postgresql+asyncpg://...",   # from secret
-        "REDIS_URL": f"rediss://...",                  # from secret
-        "COGNITO_USER_POOL_ID": auth.user_pool.user_pool_id,
-        "COGNITO_CLIENT_ID": auth.client.user_pool_client_id,
-        "COGNITO_REGION": self.region,
-        "ENVIRONMENT": env_name,
-        "ALLOWED_ORIGINS": "https://yourdomain.com",
-    }
-)
-
-# Grant Lambda access to secrets
-db_secret.grant_read(api_function)
-football_api_secret.grant_read(api_function)
+environment = {
+    "DB_SECRET_ARN": data.db_secret.secret_arn,   # config.py builds DATABASE_URL from it
+    "REDIS_URL": data.redis_url,                  # rediss://... (not secret)
+    "COGNITO_USER_POOL_ID": auth.user_pool.user_pool_id,
+    "COGNITO_CLIENT_ID": auth.client.user_pool_client_id,
+    "COGNITO_REGION": self.region,
+    "ENVIRONMENT": env_name,
+    "ALLOWED_ORIGINS": '["https://{cloudfront_domain}","http://localhost:5173"]',
+    "MOCK_AUTH": "false",
+}
+db_secret.grant_read(api_function)   # and the ops function
 ```
+
+### Ops Lambda Function (`worldcup-{env}-ops`)
+Same code asset + environment, handler `app.workers.ops.handler`, 512MB,
+5 min timeout. Invoked manually via `scripts/migrate.sh` (see below).
 
 ### HTTP API Gateway
 ```python
 apigw.HttpApi(
+    api_name=f"worldcup-{env_name}-api",
     cors_preflight=apigw.CorsPreflightOptions(
-        allow_origins=["https://yourdomain.com", "http://localhost:5173"],
+        allow_origins=[f"https://{frontend.distribution_domain_name}", "http://localhost:5173"],
         allow_methods=[apigw.CorsHttpMethod.ANY],
-        allow_headers=["Authorization", "Content-Type"],
+        allow_headers=["Authorization", "Content-Type", "X-Dev-User-Id"],
         max_age=Duration.hours(1),
     ),
     default_integration=HttpLambdaIntegration("LambdaIntegration", api_function),
 )
 ```
 
-All routes proxy to Lambda (catch-all `/{proxy+}`).
+All routes proxy to Lambda via the default integration. The frontend calls the
+API Gateway URL directly (baked into the Vite build) — there is no `/api/*`
+CloudFront behavior.
 
-Outputs: `api_url`.
+Outputs: `api_url`, `ops_function_name`.
 
 ---
 
@@ -188,44 +217,36 @@ File: `infrastructure/stacks/frontend_stack.py`
 ### S3 Bucket
 ```python
 s3.Bucket(
-    website_index_document="index.html",
-    website_error_document="index.html",  # React Router needs this
     block_public_access=s3.BlockPublicAccess.BLOCK_ALL,
     removal_policy=RemovalPolicy.DESTROY,
     auto_delete_objects=True,
 )
 ```
+(No S3 website hosting — CloudFront reads the private bucket via Origin Access
+Control.)
 
 ### CloudFront Distribution
 ```python
 cloudfront.Distribution(
     default_behavior=cloudfront.BehaviorOptions(
-        origin=origins.S3Origin(bucket, origin_access_identity=oai),
+        origin=origins.S3BucketOrigin.with_origin_access_control(bucket),
         viewer_protocol_policy=cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
         cache_policy=cloudfront.CachePolicy.CACHING_OPTIMIZED,
     ),
-    additional_behaviors={
-        "/api/*": cloudfront.BehaviorOptions(
-            origin=origins.HttpOrigin(api_domain),
-            cache_policy=cloudfront.CachePolicy.CACHING_DISABLED,
-            allowed_methods=cloudfront.AllowedMethods.ALLOW_ALL,
-            origin_request_policy=cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
-        )
-    },
     default_root_object="index.html",
     error_responses=[
-        cloudfront.ErrorResponse(
-            http_status=404,
-            response_http_status=200,
-            response_page_path="/index.html",  # SPA fallback
-        )
+        # SPA fallback — S3 via OAC returns 403 (not 404) for unknown keys
+        cloudfront.ErrorResponse(http_status=403, response_http_status=200,
+                                 response_page_path="/index.html"),
+        cloudfront.ErrorResponse(http_status=404, response_http_status=200,
+                                 response_page_path="/index.html"),
     ],
-    domain_names=["yourdomain.com"],        # optional custom domain
-    certificate=acm_cert,                   # optional ACM cert
 )
 ```
+No custom domain — the app is served from the default `*.cloudfront.net` domain
+(prod: `deickez3ug2pm.cloudfront.net`).
 
-Deploy step (after CDK synth):
+Deploy step (after CDK synth — requires `../frontend/dist` to exist):
 ```python
 s3deploy.BucketDeployment(
     sources=[s3deploy.Source.asset("../frontend/dist")],
@@ -237,56 +258,47 @@ s3deploy.BucketDeployment(
 
 ---
 
-## `SyncStack`
-File: `infrastructure/stacks/sync_stack.py`
+## Ops Lambda (replaces SyncStack)
+Defined inside `ApiStack`. Same bundled code as the API Lambda but handler
+`app.workers.ops.handler`, memory 512MB, timeout 5 minutes, same VPC +
+security groups. Invoked manually via `scripts/migrate.sh`:
 
-### Sync Lambda
-Same bundling as API Lambda but handler: `app.workers.sync_worker.handler`.
-Memory: 256MB, Timeout: 5 minutes.
-Same VPC + security groups.
-
-### EventBridge Rules
-```python
-# Fixture sync: daily at 06:00 UTC
-events.Rule(
-    schedule=events.Schedule.cron(hour="6", minute="0"),
-    targets=[targets.LambdaFunction(sync_function, 
-        event=events.RuleTargetInput.from_object({"sync_type": "fixtures"})
-    )],
-)
-
-# Score sync: every 3 minutes during tournament
-events.Rule(
-    schedule=events.Schedule.rate(Duration.minutes(3)),
-    enabled=True,  # set to False outside tournament dates
-    targets=[targets.LambdaFunction(sync_function,
-        event=events.RuleTargetInput.from_object({"sync_type": "scores"})
-    )],
-)
+```bash
+./scripts/migrate.sh prod                        # alembic upgrade head
+./scripts/migrate.sh prod seed                   # load WC2026 teams + matches
+./scripts/migrate.sh prod make_admin you@x.com   # grant admin
 ```
 
 ---
 
 ## Secrets Manager Entries
-Manually create before first deploy:
+Auto-created by CDK (no manual secrets needed):
 ```
-/worldcup/{env}/football-api-key    → {"api_key": "xxxxx"}
+worldcup/{env}/db-admin    → {"username": "...", "password": "...", "host": "...", ...}
 ```
-
-Auto-created by CDK:
-```
-/worldcup/{env}/db-admin            → {"username": "...", "password": "...", "host": "...", ...}
-```
+The Lambdas receive `DB_SECRET_ARN` and build `DATABASE_URL` from the secret
+at cold start (`app/config.py`).
 
 ---
 
 ## CDK Deploy Commands
+Prerequisites: Docker running, AWS profile `worldcup`, Node + `cdk` CLI,
+Python venv at `infrastructure/.venv` with `requirements.txt` installed.
+The account (967512078951/us-east-1) is already bootstrapped.
+
 ```bash
 cd infrastructure
-pip install -r requirements.txt
-cdk bootstrap aws://ACCOUNT_ID/us-east-1    # first time only
-cdk deploy --all --context env=prod
+./scripts/deploy.sh prod     # full two-pass deploy (infra + frontend rebuild)
+# or manually:
+cdk deploy --all --context env=prod --profile worldcup
 ```
+
+`deploy.sh` is two-pass because the Vite build needs the API URL + Cognito IDs
+from the stack outputs: deploy everything → write `frontend/.env.production`
+from `outputs-{env}.json` → `npm run build` → redeploy the frontend stack.
+
+After a first deploy: `./scripts/migrate.sh prod` then
+`./scripts/migrate.sh prod seed` (see `03_DATA_LOADING_SPEC.md`).
 
 ## Cost Estimate (prod, ~50 users)
 | Service | Monthly |
@@ -294,9 +306,8 @@ cdk deploy --all --context env=prod
 | RDS t3.micro (single AZ) | ~$15 |
 | ElastiCache t3.micro | ~$12 |
 | NAT Gateway | ~$5 |
-| Lambda (API + sync) | <$1 |
+| Lambda (API + ops) | <$1 |
 | API Gateway | <$1 |
 | CloudFront + S3 | <$1 |
 | Cognito | Free |
-| EventBridge | Free |
 | **Total** | **~$35** |

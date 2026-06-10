@@ -2,12 +2,18 @@ import uuid
 from datetime import datetime, timezone
 from typing import Optional
 
+import structlog
 from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.match import Match
+from app.models.party import PartyMember
 from app.models.prediction import Prediction
 from app.models.tournament import Team, Tournament, TournamentTeam
+from app.services.leaderboard_service import recompute_party_leaderboard
+from app.services.scoring_service import compute_points
+
+log = structlog.get_logger()
 
 
 def _compute_actual_result(match: Match) -> Optional[str]:
@@ -161,3 +167,69 @@ async def get_match(
     home_team = await db.get(Team, match.home_team_id) if match.home_team_id else None
     away_team = await db.get(Team, match.away_team_id) if match.away_team_id else None
     return _build_match_dict(match, home_team, away_team, prediction)
+
+
+async def set_match_result(
+    db: AsyncSession,
+    match_id: uuid.UUID,
+    home_score: int,
+    away_score: int,
+) -> Optional[dict]:
+    """Record a final score, (re-)score every prediction for the match, and
+    recompute the leaderboards of all affected parties.
+
+    Re-scores predictions even if already scored, so an admin can correct a
+    score that was entered wrong. Returns None if the match doesn't exist.
+    """
+    match = await db.get(Match, match_id)
+    if match is None:
+        return None
+
+    match.home_score = home_score
+    match.away_score = away_score
+    match.status = "finished"
+
+    predictions = (
+        await db.execute(select(Prediction).where(Prediction.match_id == match_id))
+    ).scalars().all()
+
+    now = datetime.now(timezone.utc)
+    for pred in predictions:
+        pred.points_result, pred.points_exact = compute_points(
+            pred.predicted_home_score,
+            pred.predicted_away_score,
+            home_score,
+            away_score,
+        )
+        pred.scored_at = now
+
+    await db.commit()
+
+    rows = (
+        await db.execute(
+            select(PartyMember.party_id)
+            .join(Prediction, Prediction.user_id == PartyMember.user_id)
+            .where(Prediction.match_id == match_id)
+            .distinct()
+        )
+    ).scalars().all()
+
+    for party_id in rows:
+        await recompute_party_leaderboard(db, party_id, match.tournament_id)
+
+    log.info(
+        "match_result.set",
+        match_id=str(match_id),
+        home_score=home_score,
+        away_score=away_score,
+        predictions_scored=len(predictions),
+        leaderboards_recomputed=len(rows),
+    )
+    return {
+        "match_id": match.id,
+        "home_score": home_score,
+        "away_score": away_score,
+        "status": match.status,
+        "predictions_scored": len(predictions),
+        "leaderboards_recomputed": len(rows),
+    }

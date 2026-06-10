@@ -18,8 +18,9 @@ CREATE TABLE tournaments (
     season      VARCHAR(10) NOT NULL,            -- "2026"
     country     VARCHAR(80),                     -- "USA/Canada/Mexico" or NULL for international
     logo_url    TEXT,
-    external_id INTEGER UNIQUE,                  -- ID from api-football.com
+    external_id INTEGER UNIQUE,                  -- stable identifier (WC2026 = 1, set by populate script)
     status      VARCHAR(20) DEFAULT 'upcoming',  -- upcoming | active | finished
+    default_prediction_stage VARCHAR(20) NOT NULL DEFAULT 'group',
     created_at  TIMESTAMPTZ DEFAULT now(),
     updated_at  TIMESTAMPTZ DEFAULT now()
 );
@@ -32,7 +33,7 @@ CREATE TABLE teams (
     name        VARCHAR(120) NOT NULL,
     short_name  VARCHAR(10),                     -- "BRA", "ARG"
     logo_url    TEXT,
-    external_id INTEGER UNIQUE,                  -- ID from api-football.com
+    external_id INTEGER UNIQUE,                  -- unused for WC2026 (teams matched by name); kept for future tournaments
     created_at  TIMESTAMPTZ DEFAULT now()
 );
 ```
@@ -66,7 +67,7 @@ CREATE TABLE matches (
     home_score_ht   INTEGER,                     -- half time
     away_score_ht   INTEGER,
     status          VARCHAR(20) DEFAULT 'scheduled', -- scheduled | live | finished | postponed | cancelled
-    external_id     INTEGER UNIQUE,              -- ID from api-football.com
+    external_id     INTEGER UNIQUE,              -- unused for WC2026 (matches loaded from JSON); kept for future tournaments
     created_at      TIMESTAMPTZ DEFAULT now(),
     updated_at      TIMESTAMPTZ DEFAULT now()
 );
@@ -87,6 +88,7 @@ CREATE TABLE users (
     display_name    VARCHAR(80),
     avatar_url      TEXT,
     is_active       BOOLEAN DEFAULT true,
+    is_admin        BOOLEAN NOT NULL DEFAULT false,  -- gates /admin/* endpoints; set via make_admin worker
     created_at      TIMESTAMPTZ DEFAULT now(),
     updated_at      TIMESTAMPTZ DEFAULT now()
 );
@@ -133,7 +135,7 @@ CREATE TABLE predictions (
     match_id                UUID NOT NULL REFERENCES matches(id) ON DELETE CASCADE,
     predicted_home_score    INTEGER NOT NULL,
     predicted_away_score    INTEGER NOT NULL,
-    -- Computed after match finishes (by sync worker)
+    -- Computed when an admin enters the final score (match_service.set_match_result)
     points_result           INTEGER DEFAULT 0,  -- 0 or 2 (correct W/D/L direction)
     points_exact            INTEGER DEFAULT 0,  -- 0 or 3 (exact scoreline)
     total_points            INTEGER GENERATED ALWAYS AS (points_result + points_exact) STORED,
@@ -148,7 +150,7 @@ CREATE INDEX idx_predictions_match ON predictions(match_id);
 ```
 
 ### `leaderboard_snapshots`
-Cached leaderboard entries. Recomputed by worker after each match is scored.
+Cached leaderboard entries. Recomputed by `leaderboard_service.recompute_party_leaderboard` whenever an admin enters/corrects a match result.
 ```sql
 CREATE TABLE leaderboard_snapshots (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),

@@ -20,3 +20,4 @@ class User(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     display_name: Mapped[Optional[str]] = mapped_column(String(80))
     avatar_url: Mapped[Optional[str]] = mapped_column(Text)
     is_active: Mapped[bool] = mapped_column(Boolean, server_default=text("true"))
+    is_admin: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))

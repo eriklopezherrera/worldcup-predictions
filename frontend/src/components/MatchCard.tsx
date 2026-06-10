@@ -13,7 +13,7 @@ interface MatchCardProps {
 
 function TeamDisplay({ name, logoUrl }: { name: string; logoUrl?: string | null }) {
   return (
-    <div className="flex flex-col items-center gap-1.5 w-20">
+    <div className="flex flex-col items-center gap-1.5 flex-1 min-w-0 max-w-[5rem]">
       {logoUrl ? (
         <img src={logoUrl} alt={name} className="w-9 h-9 object-contain" />
       ) : (
@@ -114,9 +114,9 @@ export default function MatchCard({ match, tournamentId }: MatchCardProps) {
 
       {/* Teams + score area */}
       <div className="flex items-center justify-between gap-2">
-        <TeamDisplay name={match.home_team.name} logoUrl={match.home_team.logo_url} />
+        <TeamDisplay name={match.home_team?.name ?? 'TBD'} logoUrl={match.home_team?.logo_url} />
 
-        <div className="flex-1 flex items-center justify-center">
+        <div className="shrink-0 flex items-center justify-center">
           {match.status === 'finished' ? (
             <FinishedScore match={match} />
           ) : match.status === 'live' ? (
@@ -132,7 +132,7 @@ export default function MatchCard({ match, tournamentId }: MatchCardProps) {
           )}
         </div>
 
-        <TeamDisplay name={match.away_team.name} logoUrl={match.away_team.logo_url} />
+        <TeamDisplay name={match.away_team?.name ?? 'TBD'} logoUrl={match.away_team?.logo_url} />
       </div>
 
       {/* Footer: countdown + save (editable only) */}

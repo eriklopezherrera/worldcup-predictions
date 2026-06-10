@@ -13,12 +13,13 @@ import ForgotPasswordPage from './pages/ForgotPasswordPage'
 import TournamentsPage from './pages/TournamentsPage'
 import TournamentPage from './pages/TournamentPage'
 import MyPredictionsPage from './pages/MyPredictionsPage'
-import GlobalLeaderboardPage from './pages/GlobalLeaderboardPage'
+import LeaderboardPage from './pages/LeaderboardPage'
 import PartiesPage from './pages/PartiesPage'
 import CreatePartyPage from './pages/CreatePartyPage'
 import JoinPartyPage from './pages/JoinPartyPage'
 import PartyPage from './pages/PartyPage'
 import ProfilePage from './pages/ProfilePage'
+import AdminPage from './pages/AdminPage'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -71,11 +72,12 @@ export default function App() {
             <Route path="tournaments" element={<TournamentsPage />} />
             <Route path="tournaments/:id" element={<TournamentPage />} />
             <Route path="predictions" element={<MyPredictionsPage />} />
-            <Route path="leaderboard" element={<GlobalLeaderboardPage />} />
+            <Route path="leaderboard" element={<LeaderboardPage />} />
             <Route path="parties" element={<PartiesPage />} />
             <Route path="parties/create" element={<CreatePartyPage />} />
             <Route path="parties/:id" element={<PartyPage />} />
             <Route path="profile" element={<ProfilePage />} />
+            <Route path="admin" element={<AdminPage />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />

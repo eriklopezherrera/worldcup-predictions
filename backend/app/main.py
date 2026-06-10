@@ -7,7 +7,7 @@ from mangum import Mangum
 
 from app.config import settings
 from app.database import AsyncSessionLocal
-from app.routers import auth, matches, parties, predictions, tournaments, users
+from app.routers import admin, auth, matches, parties, predictions, tournaments, users
 
 logger = structlog.get_logger()
 
@@ -40,6 +40,7 @@ app.include_router(tournaments.router)
 app.include_router(matches.router)
 app.include_router(predictions.router)
 app.include_router(parties.router)
+app.include_router(admin.router)
 
 
 @app.get("/health")

@@ -9,6 +9,7 @@ Usage:
 """
 
 import asyncio
+import uuid
 from datetime import datetime, timezone
 
 import structlog
@@ -18,8 +19,20 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import AsyncSessionLocal
 from app.models.match import Match
 from app.models.tournament import Team, Tournament, TournamentTeam
+from app.models.user import User
+from app.services.party_service import auto_join_global_parties
 
 log = structlog.get_logger()
+
+# Fixed dev user for MOCK_AUTH local testing. The UUID must match the
+# frontend's VITE_DEV_USER_ID (sent as the X-Dev-User-Id header).
+_DEV_USER = {
+    "id": uuid.UUID("00000000-0000-0000-0000-000000000001"),
+    "cognito_sub": "dev-mock-user",
+    "username": "devuser",
+    "email": "dev@example.com",
+    "display_name": "Dev User",
+}
 
 # --------------------------------------------------------------------------- #
 # Hard-coded seed data (representative subset of WC 2026)
@@ -108,6 +121,25 @@ _FIXTURES = [
 
 async def seed(db: AsyncSession) -> None:
     log.info("seed.start")
+
+    # 0. Dev user (for MOCK_AUTH local testing)
+    stmt = (
+        pg_insert(User)
+        .values(**_DEV_USER)
+        .on_conflict_do_update(
+            index_elements=["id"],
+            set_={
+                "username": _DEV_USER["username"],
+                "email": _DEV_USER["email"],
+                "display_name": _DEV_USER["display_name"],
+            },
+        )
+    )
+    await db.execute(stmt)
+    await db.commit()
+    await auto_join_global_parties(db, _DEV_USER["id"])
+    await db.commit()
+    log.info("seed.dev_user_upserted", user_id=str(_DEV_USER["id"]))
 
     # 1. Tournament
     stmt = (

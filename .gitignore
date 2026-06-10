@@ -21,6 +21,8 @@ frontend/dist/
 
 # CDK
 infrastructure/cdk.out/
+infrastructure/outputs-*.json
+infrastructure/*.log
 
 # OS / editor
 .DS_Store

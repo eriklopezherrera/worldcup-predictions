@@ -2,12 +2,15 @@ export type TournamentStatus = 'upcoming' | 'active' | 'finished'
 export type MatchStatus = 'scheduled' | 'live' | 'finished' | 'postponed' | 'cancelled'
 export type MatchStage =
   | 'group_stage'
+  | 'round_of_32'
   | 'round_of_16'
   | 'quarter_final'
   | 'semi_final'
   | 'third_place'
   | 'final'
 export type PartyRole = 'member' | 'admin'
+/** Stage tabs that can be set as the predictions-page default. */
+export type DefaultPredictionStage = 'all' | 'group' | 'knockout'
 
 export interface Tournament {
   id: string
@@ -16,6 +19,7 @@ export interface Tournament {
   country?: string | null
   logo_url?: string | null
   status: TournamentStatus
+  default_prediction_stage: DefaultPredictionStage
 }
 
 export interface Team {
@@ -28,8 +32,9 @@ export interface Team {
 export interface Match {
   id: string
   tournament_id: string
-  home_team: Team
-  away_team: Team
+  /** Null for knockout placeholders whose teams aren't decided yet. */
+  home_team: Team | null
+  away_team: Team | null
   kickoff_utc: string
   venue?: string | null
   stage: MatchStage
@@ -40,6 +45,9 @@ export interface Match {
   home_score_ht?: number | null
   away_score_ht?: number | null
   status: MatchStatus
+  is_locked?: boolean
+  actual_result?: string | null
+  /** Mapped from the API's `my_prediction` field in useMatches. */
   prediction?: Prediction | null
 }
 
@@ -68,6 +76,7 @@ export interface User {
   display_name?: string | null
   avatar_url?: string | null
   is_active: boolean
+  is_admin: boolean
 }
 
 export interface Party {
@@ -89,6 +98,12 @@ export interface PartyMember {
   role: PartyRole
 }
 
+/** Public party info shown on the invite landing page (before joining). */
+export interface PartyPreview extends Party {
+  /** Up to 3 leading members, when the API includes them. */
+  top_members?: PartyMember[]
+}
+
 export interface LeaderboardEntry {
   user_id: string
   username: string
@@ -98,6 +113,8 @@ export interface LeaderboardEntry {
   exact_scores: number
   predictions_made: number
   rank: number
+  /** Change in rank since the previous snapshot: positive = moved up, negative = moved down, 0/null = no change */
+  rank_delta?: number | null
 }
 
 export interface LeaderboardResponse {

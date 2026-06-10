@@ -57,7 +57,14 @@ class FootballApiClient:
                     await asyncio.sleep(wait)
                     continue
                 resp.raise_for_status()
-                return resp.json()
+                data = resp.json()
+                # api-football returns HTTP 200 even when the request is rejected
+                # (bad key, plan/season not allowed, etc.); the reason lives in
+                # `errors` ([] when OK, a dict of messages when not). Surface it.
+                errors = data.get("errors")
+                if errors:
+                    log.warning("football_api.api_error", path=path, params=params, errors=errors)
+                return data
             except (httpx.HTTPStatusError, httpx.RequestError) as exc:
                 last_exc = exc
                 log.warning(

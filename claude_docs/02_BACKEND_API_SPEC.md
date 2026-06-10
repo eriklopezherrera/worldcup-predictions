@@ -32,6 +32,12 @@ Located in `backend/app/dependencies.py`.
 5. If user not found in DB (first login after registration), auto-create from JWT claims
 6. After auto-create, call `party_service.auto_join_global_parties(db, user.id)` to enrol the new user in every `is_global=True` party (INSERT … ON CONFLICT DO NOTHING)
 
+### Dependency: `require_admin`
+Also in `backend/app/dependencies.py`. Wraps `get_current_user` and raises HTTP 403
+unless `user.is_admin` is true. Used by all `/admin/*` endpoints. Admin rights are
+granted out-of-band via `python -m app.workers.make_admin <email>` (or the ops
+Lambda in deployed environments) — there is no API to grant admin.
+
 ---
 
 ## Routers
@@ -67,10 +73,14 @@ All Cognito operations use `boto3` `cognito-idp` client with `USER_PASSWORD_AUTH
 | Method | Path | Auth | Description |
 |---|---|---|---|
 | GET | `/tournaments` | ✅ | List all tournaments (id, name, season, status) |
-| GET | `/tournaments/{id}` | ✅ | Tournament detail with teams |
+| GET | `/tournaments/{id}` | ✅ | Tournament detail with teams (includes `default_prediction_stage`) |
 | GET | `/tournaments/{id}/matches` | ✅ | All matches. Query params: `stage`, `status`, `group` |
-| GET | `/tournaments/{id}/leaderboard` | ✅ | Global leaderboard for this tournament. Query: `limit=50&offset=0` |
-| POST | `/tournaments` | Admin only | Create tournament (admin endpoint, protected by Cognito group) |
+
+> ⚠️ **Known gap:** the frontend (`useGlobalLeaderboard`, used by `LeaderboardPage`
+> and `ProfilePage` best-rank) calls `GET /tournaments/{id}/leaderboard`, but this
+> endpoint is **not implemented** in the backend — those calls currently 404.
+> Either implement it (global = the `is_global` party's leaderboard) or point the
+> frontend at `GET /parties/{global_party_id}/leaderboard`.
 
 ---
 
@@ -112,6 +122,15 @@ if match.kickoff_utc <= datetime.now(timezone.utc):
 | DELETE | `/parties/{id}/leave` | ✅ | Leave a party (cannot leave global party) |
 | DELETE | `/parties/{id}` | ✅ Admin | Delete party (only creator/admin, cannot delete global party) |
 | GET | `/parties/invite/{invite_code}` | Public | Preview party info before joining (for invite link landing page) |
+
+---
+
+### `/admin` — `routers/admin.py`
+All endpoints require `require_admin` (HTTP 403 for non-admins).
+
+| Method | Path | Description |
+|---|---|---|
+| PUT | `/admin/matches/{match_id}/result` | Enter or correct a final score. Body: `{home_score, away_score}`. Calls `match_service.set_match_result`, which sets the score, marks the match finished, (re-)scores **all** predictions for the match (idempotent — safe for corrections), and recomputes the leaderboard of every affected party. Returns `{match_id, home_score, away_score, status, predictions_scored, leaderboards_recomputed}`. 404 if the match doesn't exist. |
 
 ---
 
@@ -210,31 +229,33 @@ def compute_points(
 ---
 
 ## Error Handling
-Global exception handler in `main.py`. Standard error response:
+Errors use FastAPI's standard `HTTPException` shape:
 ```json
-{"detail": "Human-readable error message", "code": "MACHINE_READABLE_CODE"}
+{"detail": "Human-readable error message"}
 ```
-
-Common codes: `MATCH_LOCKED`, `ALREADY_IN_PARTY`, `PARTY_NOT_FOUND`, `INVALID_INVITE_CODE`, `PREDICTION_NOT_FOUND`.
+(No global exception handler or machine-readable `code` field is implemented —
+the original spec planned one; add it deliberately if needed.)
 
 ---
 
 ## Config (`app/config.py`)
 ```python
 class Settings(BaseSettings):
-    DATABASE_URL: str           # asyncpg connection string
-    REDIS_URL: str              # redis://...
+    DATABASE_URL: str           # asyncpg connection string (local default points at docker postgres)
+    DB_SECRET_ARN: str = ""     # deployed envs only: build DATABASE_URL from this Secrets Manager secret at cold start
+    REDIS_URL: str              # redis://... (rediss://... in deployed envs)
     COGNITO_USER_POOL_ID: str
     COGNITO_CLIENT_ID: str
     COGNITO_REGION: str
-    FOOTBALL_API_KEY: str       # api-football.com key via Secrets Manager
     ALLOWED_ORIGINS: list[str]
     ENVIRONMENT: str = "dev"    # dev | staging | prod
-    
+    MOCK_AUTH: bool = False     # local dev only — X-Dev-User-Id header auth
+
     model_config = SettingsConfigDict(env_file=".env")
 
     # All field names are lowercase; pydantic-settings matches them case-insensitively
     # to env vars (DATABASE_URL → database_url, etc.)
 ```
 
-In Lambda, env vars are injected from Secrets Manager + SSM by CDK at deploy time.
+In Lambda, CDK injects `DB_SECRET_ARN` (plus Cognito IDs, `REDIS_URL`, `ALLOWED_ORIGINS`)
+as plain env vars; `app/config.py` fetches the DB secret at cold start.

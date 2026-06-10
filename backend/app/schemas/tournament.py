@@ -18,6 +18,7 @@ class TournamentResponse(BaseModel):
     season: str
     status: str
     logo_url: str | None
+    default_prediction_stage: str
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -37,4 +38,5 @@ class TournamentDetailResponse(BaseModel):
     status: str
     logo_url: str | None
     country: str | None
+    default_prediction_stage: str
     teams: list[TournamentTeamResponse]

@@ -11,6 +11,7 @@ import type { Match, MatchStage } from '../types'
 
 const STAGE_ORDER: MatchStage[] = [
   'group_stage',
+  'round_of_32',
   'round_of_16',
   'quarter_final',
   'semi_final',
@@ -20,6 +21,7 @@ const STAGE_ORDER: MatchStage[] = [
 
 const STAGE_LABELS: Record<MatchStage, string> = {
   group_stage: 'Group Stage',
+  round_of_32: 'Round of 32',
   round_of_16: 'Round of 16',
   quarter_final: 'Quarter Final',
   semi_final: 'Semi Final',

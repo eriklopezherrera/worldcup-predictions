@@ -48,7 +48,7 @@ volumes:
 cd backend
 uv venv
 source .venv/bin/activate    # or .venv\Scripts\activate on Windows
-uv pip install -r requirements-dev.txt
+uv pip install -e ".[dev]"
 cp .env.example .env
 ```
 
@@ -59,11 +59,11 @@ REDIS_URL=redis://localhost:6380/0
 COGNITO_USER_POOL_ID=us-east-1_XXXXXXXX
 COGNITO_CLIENT_ID=xxxxxxxxxxxxxxxxxxxxxxxxxx
 COGNITO_REGION=us-east-1
-FOOTBALL_API_KEY=your_api_football_key_here
 ALLOWED_ORIGINS=["http://localhost:5173"]
 ENVIRONMENT=dev
 MOCK_AUTH=true
 ```
+(`DB_SECRET_ARN` is left unset locally — it's only used in deployed environments.)
 
 For **local dev only**, you can use a mock auth mode: set `MOCK_AUTH=true` in `.env`, which bypasses Cognito JWT validation and accepts a simple `X-Dev-User-Id` header. This avoids needing a real Cognito pool during initial development.
 
@@ -83,10 +83,15 @@ uvicorn app.main:app --reload --port 8000
 # Swagger docs at http://localhost:8000/docs
 ```
 
-### Run sync worker locally
+### Load WC2026 data
 ```bash
-python -m app.workers.sync_worker
-# Uses .env for config, connects to local DB
+python -m app.workers.populate_wc2026_teams     # 48 teams + tournament row
+python -m app.workers.populate_wc2026_matches   # 104 matches (deletes + re-inserts!)
+```
+
+### Grant yourself admin (for the /admin page)
+```bash
+python -m app.workers.make_admin you@example.com
 ```
 
 ---
@@ -116,6 +121,43 @@ npm run dev
 
 ---
 
+## Mock Auth (local testing without Cognito)
+
+Registration and login go **browser → AWS Cognito directly** (via
+`amazon-cognito-identity-js`), so they cannot run against placeholder pool IDs.
+For local feature testing you can bypass Cognito entirely and run as a single
+seeded dev user. This skips the real signup/login UI — it does **not** test the
+Cognito flows themselves.
+
+**Backend** (`backend/.env`):
+```
+MOCK_AUTH=true
+```
+This makes `get_current_user` accept an `X-Dev-User-Id` header instead of
+validating a JWT.
+
+**Frontend** (`frontend/.env.local`):
+```
+VITE_MOCK_AUTH=true
+VITE_DEV_USER_ID=00000000-0000-0000-0000-000000000001
+```
+In mock mode the auth store skips Cognito (any username/password signs you in)
+and the API client sends `X-Dev-User-Id` instead of a Bearer token.
+
+**Seed the dev user** (UUID must match `VITE_DEV_USER_ID`):
+```bash
+cd backend
+python -m app.workers.seed   # upserts the dev user + sample fixtures
+```
+
+Then **restart both servers** (env changes are not hot-reloaded) and sign in at
+`/login` with any credentials.
+
+> ⚠️ Local only. Both flags default to off in the `.env.example` files — never
+> enable them in a deployed build.
+
+---
+
 ## Database Migrations
 
 ### Create a new migration
@@ -131,7 +173,9 @@ alembic upgrade head
 docker compose down -v    # destroys postgres volume
 docker compose up postgres -d
 alembic upgrade head
-python -m app.workers.seed  # optional: seed with test data
+python -m app.workers.populate_wc2026_teams
+python -m app.workers.populate_wc2026_matches
+python -m app.workers.seed  # optional: dev user for mock auth
 ```
 
 ---
@@ -153,8 +197,9 @@ dependencies = [
     "redis[asyncio]>=5.0",
     "python-jose[cryptography]>=3.3",
     "boto3>=1.34",
-    "httpx>=0.27",            # for calling api-football
+    "httpx>=0.27",            # Cognito JWKS fetch
     "python-multipart>=0.0.9",
+    "structlog>=24.0",
 ]
 
 [project.optional-dependencies]
@@ -181,9 +226,9 @@ Test structure:
 - `tests/test_auth.py` — mock auth mode, GET /users/me, PATCH /users/me
 - `tests/test_matches.py` — GET /tournaments, GET /tournaments/{id}/matches (filters), GET /matches/{id}, is_locked, actual_result
 - `tests/test_predictions.py` — prediction CRUD, lock logic, scoring
-- `tests/test_parties.py` — create/join/leave party, invite codes
-- `tests/test_leaderboard.py` — points computation, ranking
-- `tests/test_sync_worker.py` — mock API responses, DB upsert logic
+- `tests/test_parties.py` — create/join/leave party, invite codes, leaderboard
+- `tests/test_admin.py` — require_admin gating, set match result, re-scoring
+- `tests/test_sync_worker.py` — legacy api-football sync code (unused in deploys)
 - `tests/conftest.py` — async DB session (NullPool), shared redis mock, test user fixtures
 
 Use `pytest-asyncio` with `asyncio_mode = "auto"` in `pytest.ini`.
