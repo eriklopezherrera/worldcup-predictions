@@ -273,7 +273,14 @@ async def get_party_leaderboard(
     user_id: uuid.UUID,
 ) -> dict:
     await _assert_member(db, party_id, user_id)
+    return await _read_party_leaderboard(db, party_id, tournament_id)
 
+
+async def _read_party_leaderboard(
+    db: AsyncSession,
+    party_id: uuid.UUID,
+    tournament_id: uuid.UUID,
+) -> dict:
     # Try the snapshot cache first.
     stmt = (
         select(LeaderboardSnapshot, User)
@@ -299,6 +306,36 @@ async def get_party_leaderboard(
 
     # Fallback: live computation from predictions.
     return await _live_leaderboard(db, party_id, tournament_id)
+
+
+async def get_global_leaderboard(
+    db: AsyncSession,
+    tournament_id: uuid.UUID,
+) -> dict:
+    """Leaderboard for the tournament's global party. Resolves the global party
+    server-side so the client doesn't have to discover it from its own
+    membership list, and is viewable by any authenticated user (no membership
+    assertion — every user is auto-joined to the global party anyway)."""
+    global_party = (
+        await db.execute(
+            select(Party).where(
+                Party.is_global == True,  # noqa: E712
+                Party.tournament_id == tournament_id,
+            )
+        )
+    ).scalar_one_or_none()
+    if not global_party:
+        # No global party for this tournament yet — return an empty board rather
+        # than 404 so the UI shows its empty state.
+        return {
+            "party_id": None,
+            "tournament_id": tournament_id,
+            "entries": [],
+            "computed_at": None,
+        }
+
+    # Reuse the snapshot-or-live read used by party boards.
+    return await _read_party_leaderboard(db, global_party.id, tournament_id)
 
 
 async def _live_leaderboard(

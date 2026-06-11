@@ -49,7 +49,8 @@ class LeaderboardEntry(BaseModel):
 
 
 class LeaderboardResponse(BaseModel):
-    party_id: uuid.UUID
+    # None for the global board when no global party exists for the tournament.
+    party_id: Optional[uuid.UUID]
     tournament_id: uuid.UUID
     entries: list[LeaderboardEntry]
     computed_at: Optional[datetime] = None

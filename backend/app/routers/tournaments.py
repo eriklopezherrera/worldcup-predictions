@@ -7,12 +7,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.dependencies import get_current_user, get_db
 from app.models.user import User
 from app.schemas.match import MatchResponse
+from app.schemas.party import LeaderboardResponse
 from app.schemas.tournament import (
     TournamentDetailResponse,
     TournamentResponse,
     TournamentTeamResponse,
 )
-from app.services import match_service
+from app.services import match_service, party_service
 
 router = APIRouter(prefix="/tournaments", tags=["tournaments"])
 
@@ -55,6 +56,15 @@ async def get_tournament(
         default_prediction_stage=tournament.default_prediction_stage,
         teams=teams,
     )
+
+
+@router.get("/{tournament_id}/leaderboard", response_model=LeaderboardResponse)
+async def get_global_leaderboard(
+    tournament_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    return await party_service.get_global_leaderboard(db, tournament_id)
 
 
 @router.get("/{tournament_id}/matches", response_model=list[MatchResponse])

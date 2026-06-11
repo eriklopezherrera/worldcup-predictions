@@ -1,7 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import api from '../lib/apiClient'
 import type { LeaderboardResponse } from '../types'
-import { useParties } from './useParties'
 
 export function usePartyLeaderboard(
   partyId: string | undefined,
@@ -19,11 +18,15 @@ export function usePartyLeaderboard(
 }
 
 /**
- * Tournament-wide leaderboard. Resolves to the tournament's global party (every
- * user is auto-joined to it) and reuses the party-leaderboard endpoint.
+ * Tournament-wide leaderboard. The backend resolves the tournament's global
+ * party server-side, so this works regardless of the caller's party membership.
  */
 export function useGlobalLeaderboard(tournamentId: string | undefined) {
-  const { data: parties = [] } = useParties()
-  const globalParty = parties.find((p) => p.is_global)
-  return usePartyLeaderboard(globalParty?.id, tournamentId)
+  return useQuery<LeaderboardResponse>({
+    queryKey: ['leaderboard', 'global', tournamentId],
+    queryFn: () =>
+      api.get(`/tournaments/${tournamentId}/leaderboard`).then(r => r.data),
+    enabled: !!tournamentId,
+    staleTime: 2 * 60_000,
+  })
 }

@@ -118,7 +118,8 @@ export interface LeaderboardEntry {
 }
 
 export interface LeaderboardResponse {
-  party_id: string
+  /** null for the global board when no global party exists for the tournament. */
+  party_id: string | null
   tournament_id: string
   entries: LeaderboardEntry[]
   computed_at?: string | null

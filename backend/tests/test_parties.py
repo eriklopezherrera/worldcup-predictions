@@ -444,6 +444,56 @@ async def test_leaderboard_recompute_seeds_zero_rows_for_all_members(
         assert s.rank == 1
 
 
+async def test_global_leaderboard_shows_all_members(
+    auth_client: AsyncClient,
+    db: AsyncSession,
+    user1: User,
+    user2: User,
+    system_user: User,
+    tournament: Tournament,
+):
+    """The tournament global board returns every member of the global party,
+    viewable by any authenticated user without a membership check."""
+    global_party = await _create_party_db(
+        db,
+        system_user,
+        name="Global",
+        is_global=True,
+        invite_code="GLOBAL",
+        tournament_id=tournament.id,
+    )
+    await _add_member(db, global_party, user1)
+    await _add_member(db, global_party, user2)
+
+    resp = await auth_client.get(
+        f"/tournaments/{tournament.id}/leaderboard",
+        headers=_auth(user1),
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["party_id"] == str(global_party.id)
+    # system_user (creator) + user1 + user2
+    user_ids = {e["user_id"] for e in data["entries"]}
+    assert {str(user1.id), str(user2.id)}.issubset(user_ids)
+
+
+async def test_global_leaderboard_empty_when_no_global_party(
+    auth_client: AsyncClient,
+    db: AsyncSession,
+    user1: User,
+    tournament: Tournament,
+):
+    """No global party for the tournament -> empty board, not a 404."""
+    resp = await auth_client.get(
+        f"/tournaments/{tournament.id}/leaderboard",
+        headers=_auth(user1),
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["party_id"] is None
+    assert data["entries"] == []
+
+
 async def test_leaderboard_non_member_returns_403(
     auth_client: AsyncClient,
     db: AsyncSession,
