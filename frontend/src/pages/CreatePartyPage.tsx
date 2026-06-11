@@ -1,11 +1,13 @@
 import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowLeft, Check, Copy, PartyPopper } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { useCreateParty } from '../hooks/useParties'
 import { useTournaments } from '../hooks/useTournaments'
 import type { Party } from '../types'
 
 export default function CreatePartyPage() {
+  const { t } = useTranslation()
   const { data: tournaments = [] } = useTournaments()
   const createParty = useCreateParty()
 
@@ -32,7 +34,7 @@ export default function CreatePartyPage() {
     } catch (err: unknown) {
       setError(
         (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ??
-          'Could not create party. Please try again.',
+          t('createParty.createFailed'),
       )
     }
   }
@@ -50,7 +52,7 @@ export default function CreatePartyPage() {
         className="mb-4 inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-white"
       >
         <ArrowLeft className="h-4 w-4" />
-        Back to parties
+        {t('createParty.backToParties')}
       </Link>
 
       {created ? (
@@ -58,15 +60,15 @@ export default function CreatePartyPage() {
           <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-600">
             <PartyPopper className="h-6 w-6 text-white" />
           </div>
-          <h1 className="text-xl font-bold text-white">{created.name} is ready!</h1>
+          <h1 className="text-xl font-bold text-white">{t('createParty.ready', { name: created.name })}</h1>
           <p className="mt-1 text-sm text-gray-400">
-            Share the code or link below to invite your friends.
+            {t('createParty.shareHint')}
           </p>
 
           <div className="mt-6 space-y-4 text-left">
             <div>
               <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-gray-400">
-                Invite code
+                {t('createParty.inviteCode')}
               </label>
               <div className="flex gap-2">
                 <div className="flex-1 rounded-lg border border-gray-600 bg-gray-900 px-3 py-2 text-center font-mono text-lg font-bold tracking-widest text-emerald-400">
@@ -83,7 +85,7 @@ export default function CreatePartyPage() {
 
             <div>
               <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-gray-400">
-                Shareable link
+                {t('createParty.shareableLink')}
               </label>
               <div className="flex gap-2">
                 <div className="min-w-0 flex-1 truncate rounded-lg border border-gray-600 bg-gray-900 px-3 py-2 text-sm text-gray-300">
@@ -103,40 +105,40 @@ export default function CreatePartyPage() {
             to={`/parties/${created.id}`}
             className="mt-6 block w-full rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-500"
           >
-            Go to party
+            {t('createParty.goToParty')}
           </Link>
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="rounded-xl border border-gray-700 bg-gray-800 p-6">
-          <h1 className="text-xl font-bold text-white">Create a Party</h1>
-          <p className="mt-1 text-sm text-gray-400">Set up a private group and invite your friends.</p>
+          <h1 className="text-xl font-bold text-white">{t('createParty.title')}</h1>
+          <p className="mt-1 text-sm text-gray-400">{t('createParty.subtitle')}</p>
 
           {error && (
             <div className="mt-4 rounded-lg bg-red-900/50 px-4 py-3 text-sm text-red-300">{error}</div>
           )}
 
           <div className="mt-5">
-            <label className="mb-1.5 block text-sm font-medium text-gray-300">Party name</label>
+            <label className="mb-1.5 block text-sm font-medium text-gray-300">{t('createParty.name')}</label>
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
               maxLength={80}
               required
-              placeholder="e.g. Office Pool 2026"
+              placeholder={t('createParty.namePlaceholder')}
               className="w-full rounded-lg border border-gray-600 bg-gray-700 px-3 py-2 text-white placeholder-gray-500 focus:border-emerald-500 focus:outline-none"
             />
           </div>
 
           <div className="mt-4">
             <label className="mb-1.5 block text-sm font-medium text-gray-300">
-              Tournament <span className="text-gray-500">(optional)</span>
+              {t('createParty.tournament')} <span className="text-gray-500">{t('common.optional')}</span>
             </label>
             <select
               value={tournamentId}
               onChange={(e) => setTournamentId(e.target.value)}
               className="w-full rounded-lg border border-gray-600 bg-gray-700 px-3 py-2 text-white focus:border-emerald-500 focus:outline-none"
             >
-              <option value="">All tournaments</option>
+              <option value="">{t('createParty.allTournaments')}</option>
               {tournaments.map((t) => (
                 <option key={t.id} value={t.id}>
                   {t.name}
@@ -145,7 +147,7 @@ export default function CreatePartyPage() {
               ))}
             </select>
             <p className="mt-1 text-xs text-gray-500">
-              Limit this party to a single tournament, or leave it open to all.
+              {t('createParty.tournamentHint')}
             </p>
           </div>
 
@@ -154,7 +156,7 @@ export default function CreatePartyPage() {
             disabled={!name.trim() || createParty.isPending}
             className="mt-6 w-full rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {createParty.isPending ? 'Creating…' : 'Create Party'}
+            {createParty.isPending ? t('createParty.creating') : t('createParty.create')}
           </button>
         </form>
       )}

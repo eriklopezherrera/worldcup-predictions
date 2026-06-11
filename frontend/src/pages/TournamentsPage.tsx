@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { ChevronRight, Trophy } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { useTournaments } from '../hooks/useTournaments'
 import type { Tournament, TournamentStatus } from '../types'
 
@@ -9,30 +10,25 @@ const STATUS_STYLES: Record<TournamentStatus, string> = {
   finished: 'text-gray-400 bg-gray-700 border-gray-600',
 }
 
-const STATUS_LABELS: Record<TournamentStatus, string> = {
-  active: 'Live',
-  upcoming: 'Upcoming',
-  finished: 'Finished',
-}
-
 export default function TournamentsPage() {
+  const { t } = useTranslation()
   const { data: tournaments = [], isLoading, isError } = useTournaments()
 
   return (
     <div className="max-w-2xl mx-auto px-4 pb-24">
       <div className="py-4">
-        <h1 className="text-2xl font-bold text-white">Tournaments</h1>
+        <h1 className="text-2xl font-bold text-white">{t('tournaments.title')}</h1>
         <p className="mt-1 text-sm text-gray-400">
-          Pick a tournament to see matches and submit predictions.
+          {t('tournaments.subtitle')}
         </p>
       </div>
 
       {isLoading ? (
-        <div className="text-center py-20 text-gray-400">Loading tournaments…</div>
+        <div className="text-center py-20 text-gray-400">{t('tournaments.loading')}</div>
       ) : isError ? (
-        <div className="text-center py-20 text-red-400">Failed to load tournaments.</div>
+        <div className="text-center py-20 text-red-400">{t('tournaments.loadFailed')}</div>
       ) : tournaments.length === 0 ? (
-        <div className="text-center py-20 text-gray-500">No tournaments yet.</div>
+        <div className="text-center py-20 text-gray-500">{t('tournaments.empty')}</div>
       ) : (
         <div className="flex flex-col gap-3">
           {tournaments.map(t => (
@@ -45,6 +41,7 @@ export default function TournamentsPage() {
 }
 
 function TournamentCard({ tournament }: { tournament: Tournament }) {
+  const { t } = useTranslation()
   return (
     <Link
       to={`/tournaments/${tournament.id}`}
@@ -69,7 +66,7 @@ function TournamentCard({ tournament }: { tournament: Tournament }) {
       <span
         className={`px-2 py-0.5 rounded-full border text-xs font-medium ${STATUS_STYLES[tournament.status]}`}
       >
-        {STATUS_LABELS[tournament.status]}
+        {t(`tournaments.status.${tournament.status}`)}
       </span>
       <ChevronRight size={16} className="text-gray-500 flex-shrink-0" />
     </Link>

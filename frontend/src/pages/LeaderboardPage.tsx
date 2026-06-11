@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Crown } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { useTournaments } from '../hooks/useTournaments'
 import { useParties } from '../hooks/useParties'
 import { useGlobalLeaderboard, usePartyLeaderboard } from '../hooks/useLeaderboard'
@@ -25,6 +26,7 @@ function PodiumCard({
   entry: LeaderboardEntry
   place: 1 | 2 | 3
 }) {
+  const { t } = useTranslation()
   const styles = {
     1: { ring: 'ring-yellow-400', size: 'h-16 w-16 text-xl', pad: 'pb-8', order: 'order-2' },
     2: { ring: 'ring-gray-300', size: 'h-12 w-12 text-base', pad: 'pb-4', order: 'order-1' },
@@ -52,7 +54,7 @@ function PodiumCard({
         <span className="mt-0.5 text-lg font-bold text-emerald-400 tabular-nums">
           {entry.total_points}
         </span>
-        <span className="text-xs text-gray-500">pts</span>
+        <span className="text-xs text-gray-500">{t('common.points_short')}</span>
       </div>
     </div>
   )
@@ -71,6 +73,7 @@ function Podium({ entries }: { entries: LeaderboardEntry[] }) {
 }
 
 export default function LeaderboardPage() {
+  const { t } = useTranslation()
   const { data: tournaments = [] } = useTournaments()
   const { data: parties = [] } = useParties()
   const { data: currentUser } = useCurrentUser()
@@ -102,7 +105,7 @@ export default function LeaderboardPage() {
   return (
     <div className="mx-auto max-w-2xl pb-24">
       <div className="mb-4 flex items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold text-white">Leaderboard</h1>
+        <h1 className="text-2xl font-bold text-white">{t('leaderboard.title')}</h1>
         {tournaments.length > 1 && (
           <select
             value={tournamentId ?? ''}
@@ -127,7 +130,7 @@ export default function LeaderboardPage() {
             isGlobal ? 'bg-emerald-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'
           }`}
         >
-          🌍 Global
+          {t('leaderboard.global')}
         </button>
         {parties
           .filter((p) => !p.is_global)

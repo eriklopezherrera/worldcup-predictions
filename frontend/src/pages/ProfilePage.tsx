@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
 import { Check, LogOut, Pencil, Star, Target, TrendingUp, Trophy, X } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { useCurrentUser, useUpdateUser } from '../hooks/useUser'
 import { usePredictionSummary } from '../hooks/usePredictions'
 import { useTournaments } from '../hooks/useTournaments'
 import { useGlobalLeaderboard } from '../hooks/useLeaderboard'
 import { useAuthStore } from '../stores/authStore'
+import LanguageSwitcher from '../components/LanguageSwitcher'
 
 function StatCard({
   icon,
@@ -27,6 +29,7 @@ function StatCard({
 }
 
 export default function ProfilePage() {
+  const { t } = useTranslation()
   const { data: user } = useCurrentUser()
   const { data: summary } = usePredictionSummary()
   const { data: tournaments = [] } = useTournaments()
@@ -54,7 +57,7 @@ export default function ProfilePage() {
     } catch (err: unknown) {
       setError(
         (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ??
-          'Could not update your name.',
+          t('profile.updateFailed'),
       )
     }
   }
@@ -67,12 +70,12 @@ export default function ProfilePage() {
 
   return (
     <div className="mx-auto max-w-2xl pb-24">
-      <h1 className="mb-4 text-2xl font-bold text-white">Profile</h1>
+      <h1 className="mb-4 text-2xl font-bold text-white">{t('profile.title')}</h1>
 
       {/* Identity card */}
       <div className="rounded-xl border border-gray-700 bg-gray-800 p-5">
         <div className="mb-1 text-xs font-medium uppercase tracking-wide text-gray-500">
-          Display name
+          {t('profile.displayName')}
         </div>
         {editing ? (
           <div>
@@ -81,21 +84,21 @@ export default function ProfilePage() {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 autoFocus
-                placeholder="Your display name"
+                placeholder={t('profile.displayNamePlaceholder')}
                 className="min-w-0 flex-1 rounded-lg border border-gray-600 bg-gray-700 px-3 py-2 text-white placeholder-gray-500 focus:border-emerald-500 focus:outline-none"
               />
               <button
                 onClick={handleSave}
                 disabled={updateUser.isPending}
                 className="flex items-center rounded-lg bg-emerald-600 px-3 text-white hover:bg-emerald-500 disabled:opacity-50"
-                aria-label="Save"
+                aria-label={t('profile.saveAria')}
               >
                 <Check className="h-4 w-4" />
               </button>
               <button
                 onClick={cancelEdit}
                 className="flex items-center rounded-lg bg-gray-700 px-3 text-gray-300 hover:bg-gray-600"
-                aria-label="Cancel"
+                aria-label={t('profile.cancelAria')}
               >
                 <X className="h-4 w-4" />
               </button>
@@ -112,51 +115,55 @@ export default function ProfilePage() {
               className="flex items-center gap-1.5 text-sm text-emerald-400 hover:text-emerald-300"
             >
               <Pencil className="h-3.5 w-3.5" />
-              Edit
+              {t('common.edit')}
             </button>
           </div>
         )}
 
         <div className="mt-4 grid grid-cols-1 gap-3 border-t border-gray-700 pt-4 sm:grid-cols-2">
           <div>
-            <div className="text-xs font-medium uppercase tracking-wide text-gray-500">Username</div>
+            <div className="text-xs font-medium uppercase tracking-wide text-gray-500">{t('profile.username')}</div>
             <div className="text-white">{user?.username ?? '—'}</div>
           </div>
           <div>
-            <div className="text-xs font-medium uppercase tracking-wide text-gray-500">Email</div>
+            <div className="text-xs font-medium uppercase tracking-wide text-gray-500">{t('profile.email')}</div>
             <div className="truncate text-white">{user?.email ?? '—'}</div>
           </div>
         </div>
       </div>
 
       {/* Stats */}
-      <h2 className="mb-3 mt-6 text-lg font-semibold text-white">Your stats</h2>
+      <h2 className="mb-3 mt-6 text-lg font-semibold text-white">{t('profile.yourStats')}</h2>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <StatCard
           icon={<Trophy className="h-4 w-4 text-emerald-400" />}
           value={summary?.total_points ?? 0}
-          label="Total Points"
+          label={t('profile.totalPoints')}
           accent="text-white"
         />
         <StatCard
           icon={<Star className="h-4 w-4 text-yellow-400" />}
           value={summary?.exact_scores ?? 0}
-          label="Exact Scores"
+          label={t('profile.exactScores')}
           accent="text-yellow-400"
         />
         <StatCard
           icon={<Target className="h-4 w-4 text-blue-400" />}
           value={summary?.predictions_made ?? 0}
-          label="Predictions"
+          label={t('profile.predictions')}
           accent="text-emerald-400"
         />
         <StatCard
           icon={<TrendingUp className="h-4 w-4 text-purple-400" />}
           value={bestRank != null ? `#${bestRank}` : '—'}
-          label="Best Rank"
+          label={t('profile.bestRank')}
           accent="text-purple-400"
         />
       </div>
+
+      {/* Language */}
+      <h2 className="mb-3 mt-8 text-lg font-semibold text-white">{t('language.label')}</h2>
+      <LanguageSwitcher />
 
       {/* Logout */}
       <button
@@ -164,7 +171,7 @@ export default function ProfilePage() {
         className="mt-8 flex items-center gap-2 rounded-lg border border-red-700 px-4 py-2 text-sm font-medium text-red-400 transition-colors hover:bg-red-900/30"
       >
         <LogOut className="h-4 w-4" />
-        Log out
+        {t('profile.logout')}
       </button>
     </div>
   )

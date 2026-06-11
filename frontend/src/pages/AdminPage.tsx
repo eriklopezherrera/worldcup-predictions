@@ -2,21 +2,21 @@ import { useMemo, useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { Check, Loader2, ShieldCheck } from 'lucide-react'
 import { format } from 'date-fns'
+import { useTranslation } from 'react-i18next'
 import { useTournaments } from '../hooks/useTournaments'
 import { useMatches } from '../hooks/useMatches'
 import { useCurrentUser } from '../hooks/useUser'
 import { useSetMatchResult } from '../hooks/useAdmin'
+import { useDateLocale } from '../i18n/useDateLocale'
+import { localizeTeamName } from '../i18n/teams'
 import type { Match } from '../types'
 
 type Filter = 'to_score' | 'finished' | 'all'
 
-const FILTERS: { key: Filter; label: string }[] = [
-  { key: 'to_score', label: 'To score' },
-  { key: 'finished', label: 'Finished' },
-  { key: 'all', label: 'All' },
-]
+const FILTER_KEYS: Filter[] = ['to_score', 'finished', 'all']
 
 export default function AdminPage() {
+  const { t } = useTranslation()
   const { data: currentUser, isLoading: userLoading } = useCurrentUser()
   const { data: tournaments = [] } = useTournaments()
 
@@ -42,7 +42,7 @@ export default function AdminPage() {
   }, [matches, filter])
 
   if (userLoading) {
-    return <div className="text-center py-20 text-gray-400">Loading…</div>
+    return <div className="text-center py-20 text-gray-400">{t('admin.loading')}</div>
   }
   if (!currentUser?.is_admin) {
     return <Navigate to="/" replace />
@@ -52,7 +52,7 @@ export default function AdminPage() {
     <div className="max-w-2xl mx-auto px-4 pb-24">
       <div className="flex items-center gap-2 py-4">
         <ShieldCheck className="h-6 w-6 text-emerald-500" />
-        <h1 className="text-2xl font-bold text-white">Admin — Match Results</h1>
+        <h1 className="text-2xl font-bold text-white">{t('admin.title')}</h1>
       </div>
 
       {tournaments.length > 1 && (
@@ -70,7 +70,7 @@ export default function AdminPage() {
       )}
 
       <div className="mb-4 flex gap-2">
-        {FILTERS.map(({ key, label }) => (
+        {FILTER_KEYS.map((key) => (
           <button
             key={key}
             onClick={() => setFilter(key)}
@@ -80,18 +80,18 @@ export default function AdminPage() {
                 : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
             }`}
           >
-            {label}
+            {t(`admin.filters.${key}`)}
           </button>
         ))}
       </div>
 
       {matchesLoading ? (
-        <div className="text-center py-20 text-gray-400">Loading matches…</div>
+        <div className="text-center py-20 text-gray-400">{t('admin.loadingMatches')}</div>
       ) : visibleMatches.length === 0 ? (
         <div className="text-center py-20 text-gray-400">
           {filter === 'to_score'
-            ? 'No matches waiting for a score.'
-            : 'No matches found.'}
+            ? t('admin.noneToScore')
+            : t('admin.noneFound')}
         </div>
       ) : (
         <div className="flex flex-col gap-3">
@@ -105,12 +105,14 @@ export default function AdminPage() {
 }
 
 function AdminMatchRow({ match }: { match: Match }) {
+  const { t, i18n } = useTranslation()
+  const dateLocale = useDateLocale()
   const [home, setHome] = useState(match.home_score ?? '')
   const [away, setAway] = useState(match.away_score ?? '')
   const { mutate, isPending, isSuccess, isError, error, data } = useSetMatchResult()
 
-  const homeName = match.home_team?.name ?? 'TBD'
-  const awayName = match.away_team?.name ?? 'TBD'
+  const homeName = localizeTeamName(match.home_team?.name, i18n.language) || t('common.tbd')
+  const awayName = localizeTeamName(match.away_team?.name, i18n.language) || t('common.tbd')
   const canSave = home !== '' && away !== '' && !isPending
 
   const save = () => {
@@ -124,11 +126,11 @@ function AdminMatchRow({ match }: { match: Match }) {
   return (
     <div className="rounded-xl bg-gray-800 p-4">
       <div className="mb-2 flex items-center justify-between text-xs text-gray-400">
-        <span>{format(new Date(match.kickoff_utc), 'EEE d MMM, HH:mm')}</span>
+        <span>{format(new Date(match.kickoff_utc), 'EEE d MMM, HH:mm', { locale: dateLocale })}</span>
         <span>
-          {match.group_name ? `Group ${match.group_name}` : match.stage.replace(/_/g, ' ')}
+          {match.group_name ? t('admin.group', { name: match.group_name }) : t(`stages.${match.stage}`)}
           {match.status === 'finished' && (
-            <span className="ml-2 text-emerald-400">finished</span>
+            <span className="ml-2 text-emerald-400">{t('admin.finished')}</span>
           )}
         </span>
       </div>
@@ -143,7 +145,7 @@ function AdminMatchRow({ match }: { match: Match }) {
           max={99}
           value={home}
           onChange={e => setHome(e.target.value)}
-          aria-label={`${homeName} score`}
+          aria-label={t('admin.scoreAria', { team: homeName })}
           className="w-14 rounded-lg border border-gray-600 bg-gray-900 py-1.5 text-center text-white focus:border-emerald-500 focus:outline-none"
         />
         <span className="text-gray-500">–</span>
@@ -153,7 +155,7 @@ function AdminMatchRow({ match }: { match: Match }) {
           max={99}
           value={away}
           onChange={e => setAway(e.target.value)}
-          aria-label={`${awayName} score`}
+          aria-label={t('admin.scoreAria', { team: awayName })}
           className="w-14 rounded-lg border border-gray-600 bg-gray-900 py-1.5 text-center text-white focus:border-emerald-500 focus:outline-none"
         />
         <span className="flex-1 truncate text-sm font-medium text-white">{awayName}</span>
@@ -163,21 +165,23 @@ function AdminMatchRow({ match }: { match: Match }) {
           className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-40"
         >
           {isPending ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
-          Save
+          {t('admin.save')}
         </button>
       </div>
 
       {isSuccess && data && (
         <p className="mt-2 text-xs text-emerald-400">
-          Saved — {data.predictions_scored} prediction
-          {data.predictions_scored !== 1 ? 's' : ''} scored,{' '}
-          {data.leaderboards_recomputed} leaderboard
-          {data.leaderboards_recomputed !== 1 ? 's' : ''} updated.
+          {t('admin.saved', {
+            scored: data.predictions_scored,
+            recomputed: data.leaderboards_recomputed,
+          })}
         </p>
       )}
       {isError && (
         <p className="mt-2 text-xs text-red-400">
-          Failed to save: {error instanceof Error ? error.message : 'unknown error'}
+          {t('admin.saveFailed', {
+            error: error instanceof Error ? error.message : t('admin.unknownError'),
+          })}
         </p>
       )}
     </div>

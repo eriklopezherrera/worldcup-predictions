@@ -1,11 +1,13 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { KeyRound } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { forgotPassword, confirmForgotPassword } from '../lib/auth'
 
 type Stage = 'email' | 'reset'
 
 export default function ForgotPasswordPage() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const [stage, setStage] = useState<Stage>('email')
   const [email, setEmail] = useState('')
@@ -22,7 +24,7 @@ export default function ForgotPasswordPage() {
       await forgotPassword(email)
       setStage('reset')
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to send reset code.')
+      setError(err instanceof Error ? err.message : t('forgot.sendFailed'))
     } finally {
       setIsLoading(false)
     }
@@ -36,7 +38,7 @@ export default function ForgotPasswordPage() {
       await confirmForgotPassword(email, code.trim(), newPassword)
       navigate('/login', { replace: true })
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Password reset failed.')
+      setError(err instanceof Error ? err.message : t('forgot.resetFailed'))
     } finally {
       setIsLoading(false)
     }
@@ -50,12 +52,12 @@ export default function ForgotPasswordPage() {
             <KeyRound className="h-7 w-7 text-white" />
           </div>
           <h1 className="text-2xl font-bold text-white">
-            {stage === 'email' ? 'Forgot password?' : 'Reset password'}
+            {stage === 'email' ? t('forgot.titleEmail') : t('forgot.titleReset')}
           </h1>
           <p className="mt-1 text-center text-sm text-gray-400">
             {stage === 'email'
-              ? "Enter your email and we'll send a reset code"
-              : `Enter the code sent to ${email}`}
+              ? t('forgot.subtitleEmail')
+              : t('forgot.subtitleReset', { email })}
           </p>
         </div>
 
@@ -69,7 +71,7 @@ export default function ForgotPasswordPage() {
           {stage === 'email' ? (
             <form onSubmit={handleEmailSubmit}>
               <div className="mb-6">
-                <label className="mb-1.5 block text-sm font-medium text-gray-300">Email</label>
+                <label className="mb-1.5 block text-sm font-medium text-gray-300">{t('forgot.email')}</label>
                 <input
                   type="email"
                   value={email}
@@ -77,7 +79,7 @@ export default function ForgotPasswordPage() {
                   required
                   autoComplete="email"
                   className="w-full rounded-lg border border-gray-600 bg-gray-700 px-3 py-2 text-white placeholder-gray-400 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                  placeholder="john@example.com"
+                  placeholder={t('forgot.emailPlaceholder')}
                 />
               </div>
               <button
@@ -85,14 +87,14 @@ export default function ForgotPasswordPage() {
                 disabled={isLoading}
                 className="w-full rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {isLoading ? 'Sending code…' : 'Send reset code'}
+                {isLoading ? t('forgot.sendingCode') : t('forgot.sendCode')}
               </button>
             </form>
           ) : (
             <form onSubmit={handleResetSubmit}>
               <div className="mb-4">
                 <label className="mb-1.5 block text-sm font-medium text-gray-300">
-                  Verification Code
+                  {t('forgot.code')}
                 </label>
                 <input
                   type="text"
@@ -107,7 +109,7 @@ export default function ForgotPasswordPage() {
               </div>
               <div className="mb-6">
                 <label className="mb-1.5 block text-sm font-medium text-gray-300">
-                  New Password
+                  {t('forgot.newPassword')}
                 </label>
                 <input
                   type="password"
@@ -117,7 +119,7 @@ export default function ForgotPasswordPage() {
                   autoComplete="new-password"
                   minLength={8}
                   className="w-full rounded-lg border border-gray-600 bg-gray-700 px-3 py-2 text-white placeholder-gray-400 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                  placeholder="At least 8 characters"
+                  placeholder={t('forgot.newPasswordPlaceholder')}
                 />
               </div>
               <button
@@ -125,7 +127,7 @@ export default function ForgotPasswordPage() {
                 disabled={isLoading || code.length !== 6}
                 className="w-full rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {isLoading ? 'Resetting…' : 'Reset password'}
+                {isLoading ? t('forgot.resetting') : t('forgot.resetPassword')}
               </button>
             </form>
           )}
@@ -133,7 +135,7 @@ export default function ForgotPasswordPage() {
 
         <p className="mt-4 text-center text-sm text-gray-400">
           <Link to="/login" className="font-medium text-emerald-400 hover:text-emerald-300">
-            Back to sign in
+            {t('forgot.backToSignIn')}
           </Link>
         </p>
       </div>

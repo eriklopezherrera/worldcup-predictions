@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Globe, Users } from 'lucide-react'
+import { Trans, useTranslation } from 'react-i18next'
 import { usePartyPreview, useJoinParty } from '../hooks/useParties'
 import { useAuthStore } from '../stores/authStore'
 import type { PartyMember } from '../types'
@@ -25,6 +26,7 @@ function MemberAvatar({ member }: { member: PartyMember }) {
 }
 
 export default function JoinPartyPage() {
+  const { t } = useTranslation()
   const { code } = useParams<{ code: string }>()
   const navigate = useNavigate()
   const { tokens } = useAuthStore()
@@ -46,7 +48,7 @@ export default function JoinPartyPage() {
     } catch (err: unknown) {
       setError(
         (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ??
-          'Could not join this party. The invite may be invalid or full.',
+          t('joinParty.joinFailed'),
       )
     }
   }
@@ -63,21 +65,24 @@ export default function JoinPartyPage() {
             )}
           </div>
           {isLoading ? (
-            <p className="text-gray-400">Loading invite…</p>
+            <p className="text-gray-400">{t('joinParty.loadingInvite')}</p>
           ) : isError || !party ? (
             <>
-              <h1 className="text-xl font-bold text-white">Invite not found</h1>
+              <h1 className="text-xl font-bold text-white">{t('joinParty.inviteNotFound')}</h1>
               <p className="mt-1 text-sm text-gray-400">
-                The code <span className="font-mono text-emerald-400">{code}</span> doesn&apos;t
-                match any party.
+                <Trans
+                  i18nKey="joinParty.codeNoMatch"
+                  values={{ code }}
+                  components={[<span className="font-mono text-emerald-400" />]}
+                />
               </p>
             </>
           ) : (
             <>
-              <p className="text-sm text-gray-400">You&apos;ve been invited to join</p>
+              <p className="text-sm text-gray-400">{t('joinParty.invitedToJoin')}</p>
               <h1 className="text-xl font-bold text-white">{party.name}</h1>
               <p className="mt-1 text-sm text-gray-400">
-                {party.member_count} {party.member_count === 1 ? 'member' : 'members'}
+                {t('parties.memberCount', { count: party.member_count })}
               </p>
             </>
           )}
@@ -101,7 +106,11 @@ export default function JoinPartyPage() {
             disabled={joinParty.isPending}
             className="w-full rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {joinParty.isPending ? 'Joining…' : tokens ? 'Join Party' : 'Sign in to join'}
+            {joinParty.isPending
+              ? t('joinParty.joining')
+              : tokens
+                ? t('joinParty.joinParty')
+                : t('joinParty.signInToJoin')}
           </button>
         )}
       </div>

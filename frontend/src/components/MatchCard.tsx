@@ -1,9 +1,12 @@
 import { useEffect, useState } from 'react'
 import { Loader2, Lock, Wifi } from 'lucide-react'
 import { format } from 'date-fns'
+import { useTranslation } from 'react-i18next'
 import ScoreInput from './ScoreInput'
 import Countdown from './Countdown'
 import { useSavePrediction } from '../hooks/usePredictions'
+import { useDateLocale } from '../i18n/useDateLocale'
+import { localizeTeamName } from '../i18n/teams'
 import type { Match } from '../types'
 
 interface MatchCardProps {
@@ -27,6 +30,7 @@ function TeamDisplay({ name, logoUrl }: { name: string; logoUrl?: string | null 
 }
 
 function PointsBadge({ points }: { points: number }) {
+  const { t } = useTranslation()
   const cls =
     points === 5
       ? 'text-yellow-400 bg-yellow-400/10 border-yellow-400/30'
@@ -35,31 +39,32 @@ function PointsBadge({ points }: { points: number }) {
         : 'text-gray-400 bg-gray-700 border-gray-600'
   return (
     <span className={`inline-block px-2 py-0.5 rounded border text-xs font-bold ${cls}`}>
-      {points > 0 ? `+${points}` : '0'} pts
+      {t('match.pointsBadge', { points: points > 0 ? `+${points}` : '0' })}
     </span>
   )
 }
 
 function MatchStatusBadge({ status }: { status: Match['status'] }) {
+  const { t } = useTranslation()
   if (status === 'live') {
     return (
       <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-500/20 text-red-400 text-xs font-bold animate-pulse">
         <Wifi size={10} />
-        LIVE
+        {t('match.live')}
       </span>
     )
   }
   if (status === 'postponed') {
     return (
       <span className="px-2 py-0.5 rounded-full bg-yellow-500/20 text-yellow-400 text-xs font-medium">
-        Postponed
+        {t('match.postponed')}
       </span>
     )
   }
   if (status === 'cancelled') {
     return (
       <span className="px-2 py-0.5 rounded-full bg-gray-700 text-gray-400 text-xs font-medium">
-        Cancelled
+        {t('match.cancelled')}
       </span>
     )
   }
@@ -67,6 +72,8 @@ function MatchStatusBadge({ status }: { status: Match['status'] }) {
 }
 
 export default function MatchCard({ match, tournamentId }: MatchCardProps) {
+  const { t, i18n } = useTranslation()
+  const dateLocale = useDateLocale()
   const isMatchLocked =
     match.prediction?.is_locked ||
     match.status !== 'scheduled' ||
@@ -100,21 +107,24 @@ export default function MatchCard({ match, tournamentId }: MatchCardProps) {
       {/* Row: kickoff time + status badge */}
       <div className="flex items-center justify-between mb-3">
         <span className="text-xs text-gray-500">
-          {format(new Date(match.kickoff_utc), 'EEE d MMM, HH:mm')}
+          {format(new Date(match.kickoff_utc), 'EEE d MMM, HH:mm', { locale: dateLocale })}
           {match.venue ? ` · ${match.venue}` : ''}
         </span>
         <MatchStatusBadge status={match.status} />
         {match.status === 'scheduled' && isMatchLocked && (
           <span className="flex items-center gap-1 text-xs text-yellow-500">
             <Lock size={10} />
-            Locked
+            {t('match.locked')}
           </span>
         )}
       </div>
 
       {/* Teams + score area */}
       <div className="flex items-center justify-between gap-2">
-        <TeamDisplay name={match.home_team?.name ?? 'TBD'} logoUrl={match.home_team?.logo_url} />
+        <TeamDisplay
+          name={localizeTeamName(match.home_team?.name, i18n.language) || t('common.tbd')}
+          logoUrl={match.home_team?.logo_url}
+        />
 
         <div className="shrink-0 flex items-center justify-center">
           {match.status === 'finished' ? (
@@ -132,7 +142,10 @@ export default function MatchCard({ match, tournamentId }: MatchCardProps) {
           )}
         </div>
 
-        <TeamDisplay name={match.away_team?.name ?? 'TBD'} logoUrl={match.away_team?.logo_url} />
+        <TeamDisplay
+          name={localizeTeamName(match.away_team?.name, i18n.language) || t('common.tbd')}
+          logoUrl={match.away_team?.logo_url}
+        />
       </div>
 
       {/* Footer: countdown + save (editable only) */}
@@ -141,7 +154,7 @@ export default function MatchCard({ match, tournamentId }: MatchCardProps) {
           <Countdown kickoffUtc={match.kickoff_utc} />
           <div className="flex items-center gap-2">
             {isError && (
-              <span className="text-red-400 text-xs">Failed to save</span>
+              <span className="text-red-400 text-xs">{t('match.failedToSave')}</span>
             )}
             <button
               onClick={handleSave}
@@ -149,7 +162,7 @@ export default function MatchCard({ match, tournamentId }: MatchCardProps) {
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium transition-colors"
             >
               {isPending && <Loader2 size={12} className="animate-spin" />}
-              {match.prediction ? 'Update' : 'Save'}
+              {match.prediction ? t('common.update') : t('common.save')}
             </button>
           </div>
         </div>
@@ -159,6 +172,7 @@ export default function MatchCard({ match, tournamentId }: MatchCardProps) {
 }
 
 function FinishedScore({ match }: { match: Match }) {
+  const { t } = useTranslation()
   const pred = match.prediction
   return (
     <div className="text-center">
@@ -168,20 +182,24 @@ function FinishedScore({ match }: { match: Match }) {
       {pred ? (
         <>
           <div className="text-xs text-gray-500 mt-1">
-            Your pick: {pred.predicted_home_score}–{pred.predicted_away_score}
+            {t('match.yourPick', {
+              home: pred.predicted_home_score,
+              away: pred.predicted_away_score,
+            })}
           </div>
           <div className="mt-1.5">
             <PointsBadge points={pred.total_points} />
           </div>
         </>
       ) : (
-        <div className="text-xs text-gray-500 mt-1">No prediction · 0 pts</div>
+        <div className="text-xs text-gray-500 mt-1">{t('match.noPrediction')}</div>
       )}
     </div>
   )
 }
 
 function LiveScore({ match }: { match: Match }) {
+  const { t } = useTranslation()
   const pred = match.prediction
   return (
     <div className="text-center">
@@ -190,16 +208,19 @@ function LiveScore({ match }: { match: Match }) {
           {match.home_score} – {match.away_score}
           {match.home_score_ht != null && (
             <span className="text-xs text-gray-500 font-normal ml-1">
-              (HT {match.home_score_ht}–{match.away_score_ht})
+              ({t('match.halfTime', { home: match.home_score_ht, away: match.away_score_ht })})
             </span>
           )}
         </div>
       ) : (
-        <div className="text-gray-400 text-sm">In Progress</div>
+        <div className="text-gray-400 text-sm">{t('match.inProgress')}</div>
       )}
       {pred && (
         <div className="text-xs text-gray-500 mt-1 opacity-60">
-          Your pick: {pred.predicted_home_score}–{pred.predicted_away_score}
+          {t('match.yourPick', {
+            home: pred.predicted_home_score,
+            away: pred.predicted_away_score,
+          })}
         </div>
       )}
     </div>
@@ -207,19 +228,20 @@ function LiveScore({ match }: { match: Match }) {
 }
 
 function LockedScore({ match }: { match: Match }) {
+  const { t } = useTranslation()
   const pred = match.prediction
   return (
     <div className="text-center">
       <div className="flex items-center justify-center gap-1 text-gray-500 text-xs mb-1.5">
         <Lock size={11} />
-        <span>Prediction locked</span>
+        <span>{t('match.predictionLocked')}</span>
       </div>
       {pred ? (
         <div className="text-xl font-bold text-gray-400 tabular-nums">
           {pred.predicted_home_score} – {pred.predicted_away_score}
         </div>
       ) : (
-        <div className="text-sm text-gray-500">No prediction made</div>
+        <div className="text-sm text-gray-500">{t('match.noPredictionMade')}</div>
       )}
     </div>
   )

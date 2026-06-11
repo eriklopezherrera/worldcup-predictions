@@ -1,9 +1,12 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Globe } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '../stores/authStore'
+import LanguageSwitcher from '../components/LanguageSwitcher'
 
 export default function LoginPage() {
+  const { t } = useTranslation()
   const [usernameOrEmail, setUsernameOrEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -21,7 +24,7 @@ export default function LoginPage() {
       await login(usernameOrEmail, password)
       navigate(redirectTo, { replace: true })
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Login failed. Please try again.')
+      setError(err instanceof Error ? err.message : t('login.failed'))
     }
   }
 
@@ -32,8 +35,8 @@ export default function LoginPage() {
           <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-600">
             <Globe className="h-7 w-7 text-white" />
           </div>
-          <h1 className="text-2xl font-bold text-white">World Cup Picks</h1>
-          <p className="mt-1 text-sm text-gray-400">Sign in to your account</p>
+          <h1 className="text-2xl font-bold text-white">{t('login.title')}</h1>
+          <p className="mt-1 text-sm text-gray-400">{t('login.subtitle')}</p>
         </div>
 
         <form onSubmit={handleSubmit} className="rounded-xl bg-gray-800 p-6 shadow-lg">
@@ -45,7 +48,7 @@ export default function LoginPage() {
 
           <div className="mb-4">
             <label className="mb-1.5 block text-sm font-medium text-gray-300">
-              Username or Email
+              {t('login.usernameOrEmail')}
             </label>
             <input
               type="text"
@@ -54,12 +57,12 @@ export default function LoginPage() {
               required
               autoComplete="username"
               className="w-full rounded-lg border border-gray-600 bg-gray-700 px-3 py-2 text-white placeholder-gray-400 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-              placeholder="Your username or email"
+              placeholder={t('login.usernameOrEmailPlaceholder')}
             />
           </div>
 
           <div className="mb-2">
-            <label className="mb-1.5 block text-sm font-medium text-gray-300">Password</label>
+            <label className="mb-1.5 block text-sm font-medium text-gray-300">{t('login.password')}</label>
             <input
               type="password"
               value={password}
@@ -73,7 +76,7 @@ export default function LoginPage() {
 
           <div className="mb-6 text-right">
             <Link to="/forgot-password" className="text-xs text-emerald-400 hover:text-emerald-300">
-              Forgot password?
+              {t('login.forgotPassword')}
             </Link>
           </div>
 
@@ -82,16 +85,20 @@ export default function LoginPage() {
             disabled={isLoading}
             className="w-full rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {isLoading ? 'Signing in…' : 'Sign in'}
+            {isLoading ? t('login.signingIn') : t('login.signIn')}
           </button>
         </form>
 
         <p className="mt-4 text-center text-sm text-gray-400">
-          Don&apos;t have an account?{' '}
+          {t('login.noAccount')}{' '}
           <Link to="/register" className="font-medium text-emerald-400 hover:text-emerald-300">
-            Sign up
+            {t('login.signUp')}
           </Link>
         </p>
+
+        <div className="mt-6 flex justify-center">
+          <LanguageSwitcher />
+        </div>
       </div>
     </div>
   )

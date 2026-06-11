@@ -1,18 +1,20 @@
 import { Outlet, NavLink } from 'react-router-dom'
 import { Home, Trophy, BarChart3, Users, User, Globe, ShieldCheck } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { useCurrentUser } from '../hooks/useUser'
 
 const baseNavItems = [
-  { to: '/tournaments', icon: Home, label: 'Home' },
-  { to: '/predictions', icon: Trophy, label: 'Predictions' },
-  { to: '/leaderboard', icon: BarChart3, label: 'Leaderboard' },
-  { to: '/parties', icon: Users, label: 'Parties' },
-  { to: '/profile', icon: User, label: 'Profile' },
+  { to: '/tournaments', icon: Home, labelKey: 'nav.home' },
+  { to: '/predictions', icon: Trophy, labelKey: 'nav.predictions' },
+  { to: '/leaderboard', icon: BarChart3, labelKey: 'nav.leaderboard' },
+  { to: '/parties', icon: Users, labelKey: 'nav.parties' },
+  { to: '/profile', icon: User, labelKey: 'nav.profile' },
 ]
 
-const adminNavItem = { to: '/admin', icon: ShieldCheck, label: 'Admin' }
+const adminNavItem = { to: '/admin', icon: ShieldCheck, labelKey: 'nav.admin' }
 
 export default function Layout() {
+  const { t } = useTranslation()
   const { data: currentUser } = useCurrentUser()
   const navItems = currentUser?.is_admin ? [...baseNavItems, adminNavItem] : baseNavItems
 
@@ -23,10 +25,10 @@ export default function Layout() {
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
           <div className="flex items-center gap-2">
             <Globe className="h-6 w-6 text-emerald-500" />
-            <span className="text-lg font-bold text-white">WC Picks</span>
+            <span className="text-lg font-bold text-white">{t('nav.brand')}</span>
           </div>
           <nav className="flex items-center gap-1">
-            {navItems.map(({ to, icon: Icon, label }) => (
+            {navItems.map(({ to, icon: Icon, labelKey }) => (
               <NavLink
                 key={to}
                 to={to}
@@ -39,7 +41,7 @@ export default function Layout() {
                 }
               >
                 <Icon className="h-4 w-4" />
-                {label}
+                {t(labelKey)}
               </NavLink>
             ))}
           </nav>
@@ -56,7 +58,7 @@ export default function Layout() {
       {/* Mobile bottom nav */}
       <nav className="fixed bottom-0 left-0 right-0 border-t border-gray-700 bg-gray-800 md:hidden">
         <div className="flex items-center justify-around">
-          {navItems.map(({ to, icon: Icon, label }) => (
+          {navItems.map(({ to, icon: Icon, labelKey }) => (
             <NavLink
               key={to}
               to={to}
@@ -67,7 +69,7 @@ export default function Layout() {
               }
             >
               <Icon className="h-5 w-5" />
-              {label}
+              {t(labelKey)}
             </NavLink>
           ))}
         </div>

@@ -1,4 +1,5 @@
 import { Minus, Plus } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 interface ScoreInputProps {
   value: number
@@ -10,6 +11,7 @@ const MIN = 0
 const MAX = 30
 
 export default function ScoreInput({ value, onChange, disabled }: ScoreInputProps) {
+  const { t } = useTranslation()
   const dec = () => onChange(Math.max(MIN, value - 1))
   const inc = () => onChange(Math.min(MAX, value + 1))
 
@@ -20,7 +22,7 @@ export default function ScoreInput({ value, onChange, disabled }: ScoreInputProp
         onClick={dec}
         disabled={disabled || value <= MIN}
         className="w-7 h-7 rounded-full bg-gray-700 flex items-center justify-center text-white hover:bg-gray-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-        aria-label="Decrease"
+        aria-label={t('common.decrease')}
       >
         <Minus size={14} />
       </button>
@@ -34,14 +36,14 @@ export default function ScoreInput({ value, onChange, disabled }: ScoreInputProp
         }
         disabled={disabled}
         className="w-10 text-center bg-gray-700 border border-gray-600 rounded text-white font-bold text-lg py-1 disabled:opacity-50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none focus:outline-none focus:border-emerald-500"
-        aria-label="Score"
+        aria-label={t('common.score')}
       />
       <button
         type="button"
         onClick={inc}
         disabled={disabled || value >= MAX}
         className="w-7 h-7 rounded-full bg-gray-700 flex items-center justify-center text-white hover:bg-gray-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-        aria-label="Increase"
+        aria-label={t('common.increase')}
       >
         <Plus size={14} />
       </button>

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { ChevronUp, ChevronDown, Minus } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import type { LeaderboardEntry } from '../types'
 
 interface LeaderboardTableProps {
@@ -65,6 +66,7 @@ export default function LeaderboardTable({
   pageSize = 50,
   isLoading = false,
 }: LeaderboardTableProps) {
+  const { t } = useTranslation()
   const [visible, setVisible] = useState(pageSize)
 
   // Reset pagination whenever the underlying dataset changes (e.g. tab/tournament switch).
@@ -73,13 +75,13 @@ export default function LeaderboardTable({
   }, [entries, pageSize])
 
   if (isLoading) {
-    return <div className="py-12 text-center text-gray-400">Loading leaderboard…</div>
+    return <div className="py-12 text-center text-gray-400">{t('leaderboard.loading')}</div>
   }
 
   if (entries.length === 0) {
     return (
       <div className="py-12 text-center text-gray-500">
-        No rankings yet. Make some predictions to get on the board!
+        {t('leaderboard.empty')}
       </div>
     )
   }
@@ -94,10 +96,10 @@ export default function LeaderboardTable({
           <thead className="border-b border-gray-700 text-xs uppercase tracking-wide text-gray-400">
             <tr>
               <th className="px-3 py-3 font-medium">#</th>
-              <th className="px-3 py-3 font-medium">Player</th>
-              <th className="px-3 py-3 text-right font-medium">Pts</th>
-              <th className="hidden px-3 py-3 text-right font-medium sm:table-cell">Exact</th>
-              <th className="hidden px-3 py-3 text-right font-medium sm:table-cell">Predictions</th>
+              <th className="px-3 py-3 font-medium">{t('leaderboard.player')}</th>
+              <th className="px-3 py-3 text-right font-medium">{t('leaderboard.pts')}</th>
+              <th className="hidden px-3 py-3 text-right font-medium sm:table-cell">{t('leaderboard.exact')}</th>
+              <th className="hidden px-3 py-3 text-right font-medium sm:table-cell">{t('leaderboard.predictions')}</th>
             </tr>
           </thead>
           <tbody>
@@ -131,7 +133,7 @@ export default function LeaderboardTable({
                         }`}
                       >
                         {entry.display_name ?? entry.username}
-                        {isMe && <span className="ml-1.5 text-xs text-emerald-500">(you)</span>}
+                        {isMe && <span className="ml-1.5 text-xs text-emerald-500">{t('common.you')}</span>}
                       </span>
                     </div>
                   </td>
@@ -157,7 +159,7 @@ export default function LeaderboardTable({
             onClick={() => setVisible((v) => v + pageSize)}
             className="rounded-lg border border-gray-700 bg-gray-800 px-4 py-2 text-sm font-medium text-gray-300 transition-colors hover:bg-gray-700 hover:text-white"
           >
-            Load more ({entries.length - visible} remaining)
+            {t('leaderboard.loadMore', { count: entries.length - visible })}
           </button>
         </div>
       )}

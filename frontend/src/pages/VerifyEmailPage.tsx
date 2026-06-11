@@ -1,9 +1,11 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { MailCheck } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { confirmEmail, resendConfirmationCode } from '../lib/auth'
 
 export default function VerifyEmailPage() {
+  const { t } = useTranslation()
   const location = useLocation()
   const navigate = useNavigate()
   const username = (location.state as { username?: string } | null)?.username ?? ''
@@ -16,7 +18,7 @@ export default function VerifyEmailPage() {
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     if (!username) {
-      setError('Username not found. Please go back and register again.')
+      setError(t('verify.usernameNotFound'))
       return
     }
     setError('')
@@ -25,7 +27,7 @@ export default function VerifyEmailPage() {
       await confirmEmail(username, code.trim())
       navigate('/login', { replace: true })
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Verification failed. Please try again.')
+      setError(err instanceof Error ? err.message : t('verify.failed'))
     } finally {
       setIsLoading(false)
     }
@@ -37,9 +39,9 @@ export default function VerifyEmailPage() {
     setSuccess('')
     try {
       await resendConfirmationCode(username)
-      setSuccess('A new code has been sent to your email.')
+      setSuccess(t('verify.resent'))
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to resend code.')
+      setError(err instanceof Error ? err.message : t('verify.resendFailed'))
     }
   }
 
@@ -50,9 +52,9 @@ export default function VerifyEmailPage() {
           <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-600">
             <MailCheck className="h-7 w-7 text-white" />
           </div>
-          <h1 className="text-2xl font-bold text-white">Verify your email</h1>
+          <h1 className="text-2xl font-bold text-white">{t('verify.title')}</h1>
           <p className="mt-1 text-center text-sm text-gray-400">
-            We sent a 6-digit code to your email address
+            {t('verify.subtitle')}
           </p>
         </div>
 
@@ -70,7 +72,7 @@ export default function VerifyEmailPage() {
 
           <div className="mb-6">
             <label className="mb-1.5 block text-sm font-medium text-gray-300">
-              Verification Code
+              {t('verify.code')}
             </label>
             <input
               type="text"
@@ -89,23 +91,23 @@ export default function VerifyEmailPage() {
             disabled={isLoading || code.length !== 6}
             className="w-full rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {isLoading ? 'Verifying…' : 'Verify email'}
+            {isLoading ? t('verify.verifying') : t('verify.verifyEmail')}
           </button>
         </form>
 
         <div className="mt-4 text-center text-sm text-gray-400">
-          Didn&apos;t receive a code?{' '}
+          {t('verify.noCode')}{' '}
           <button
             onClick={handleResend}
             className="font-medium text-emerald-400 hover:text-emerald-300"
           >
-            Resend
+            {t('verify.resend')}
           </button>
         </div>
 
         <p className="mt-2 text-center text-sm text-gray-400">
           <Link to="/login" className="font-medium text-emerald-400 hover:text-emerald-300">
-            Back to sign in
+            {t('verify.backToSignIn')}
           </Link>
         </p>
       </div>

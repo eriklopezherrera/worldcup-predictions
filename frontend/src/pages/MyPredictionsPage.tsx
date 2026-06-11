@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Star, Target, Trophy } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { useTournaments } from '../hooks/useTournaments'
 import { useMatches } from '../hooks/useMatches'
 import { usePredictionSummary } from '../hooks/usePredictions'
@@ -17,15 +18,10 @@ const KNOCKOUT_STAGES: MatchStage[] = [
   'final',
 ]
 
-const TABS: { id: FilterTab; label: string }[] = [
-  { id: 'all', label: 'All' },
-  { id: 'group', label: 'Group Stage' },
-  { id: 'knockout', label: 'Knockout' },
-  { id: 'pending', label: 'Pending' },
-  { id: 'scored', label: 'Scored' },
-]
+const TAB_IDS: FilterTab[] = ['all', 'group', 'knockout', 'pending', 'scored']
 
 export default function MyPredictionsPage() {
+  const { t } = useTranslation()
   const { data: tournaments = [] } = useTournaments()
   const activeTournament = tournaments.find(t => t.status === 'active') ?? tournaments[0]
 
@@ -76,7 +72,7 @@ export default function MyPredictionsPage() {
   return (
     <div className="max-w-2xl mx-auto px-4 pb-24">
       <div className="py-4">
-        <h1 className="text-2xl font-bold text-white">My Predictions</h1>
+        <h1 className="text-2xl font-bold text-white">{t('predictions.title')}</h1>
       </div>
 
       {/* Tournament selector (only shown when multiple exist) */}
@@ -104,47 +100,47 @@ export default function MyPredictionsPage() {
               <Trophy size={14} className="text-emerald-400" />
             </div>
             <div className="text-lg font-bold text-white">{summary.total_points}</div>
-            <div className="text-xs text-gray-400">Total Points</div>
+            <div className="text-xs text-gray-400">{t('predictions.totalPoints')}</div>
           </div>
           <div className="bg-gray-800 rounded-xl p-3 text-center">
             <div className="flex justify-center mb-1">
               <Star size={14} className="text-yellow-400" />
             </div>
             <div className="text-lg font-bold text-yellow-400">{summary.exact_scores}</div>
-            <div className="text-xs text-gray-400">Exact Scores</div>
+            <div className="text-xs text-gray-400">{t('predictions.exactScores')}</div>
           </div>
           <div className="bg-gray-800 rounded-xl p-3 text-center">
             <div className="flex justify-center mb-1">
               <Target size={14} className="text-blue-400" />
             </div>
             <div className="text-lg font-bold text-emerald-400">{summary.predictions_made}</div>
-            <div className="text-xs text-gray-400">Predicted</div>
+            <div className="text-xs text-gray-400">{t('predictions.predicted')}</div>
           </div>
         </div>
       )}
 
       {/* Filter tabs */}
       <div className="flex gap-2 overflow-x-auto pb-2 mb-4 scrollbar-none">
-        {TABS.map(tab => (
+        {TAB_IDS.map(id => (
           <button
-            key={tab.id}
-            onClick={() => handleTabClick(tab.id)}
+            key={id}
+            onClick={() => handleTabClick(id)}
             className={`px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors flex-shrink-0 ${
-              activeTab === tab.id
+              activeTab === id
                 ? 'bg-emerald-600 text-white'
                 : 'bg-gray-800 text-gray-400 hover:text-white'
             }`}
           >
-            {tab.label}
+            {t(`predictions.tabs.${id}`)}
           </button>
         ))}
       </div>
 
       {/* Cards */}
       {isLoading ? (
-        <div className="text-center py-20 text-gray-400">Loading predictions…</div>
+        <div className="text-center py-20 text-gray-400">{t('predictions.loading')}</div>
       ) : filteredMatches.length === 0 ? (
-        <div className="text-center py-20 text-gray-500">No matches for this filter.</div>
+        <div className="text-center py-20 text-gray-500">{t('predictions.noMatches')}</div>
       ) : (
         <div className="flex flex-col gap-3">
           {filteredMatches.map(match => (

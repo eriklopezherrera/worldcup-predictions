@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
 import { ArrowLeft, Check, Copy, LogOut, Share2, Users } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { useParty, useLeaveParty } from '../hooks/useParties'
 import { usePartyLeaderboard } from '../hooks/useLeaderboard'
 import { useTournaments } from '../hooks/useTournaments'
@@ -8,6 +9,7 @@ import { useCurrentUser } from '../hooks/useUser'
 import LeaderboardTable from '../components/LeaderboardTable'
 
 export default function PartyPage() {
+  const { t } = useTranslation()
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
 
@@ -33,7 +35,7 @@ export default function PartyPage() {
 
   async function handleLeave() {
     if (!id) return
-    if (!window.confirm('Leave this party? You can rejoin later with the invite code.')) return
+    if (!window.confirm(t('party.confirmLeave'))) return
     setError('')
     try {
       await leaveParty.mutateAsync(id)
@@ -41,20 +43,20 @@ export default function PartyPage() {
     } catch (err: unknown) {
       setError(
         (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ??
-          'Could not leave this party.',
+          t('party.leaveFailed'),
       )
     }
   }
 
   if (partyLoading) {
-    return <div className="py-12 text-center text-gray-400">Loading party…</div>
+    return <div className="py-12 text-center text-gray-400">{t('party.loading')}</div>
   }
   if (!party) {
     return (
       <div className="py-12 text-center text-gray-500">
-        Party not found.{' '}
+        {t('party.notFound')}{' '}
         <Link to="/parties" className="text-emerald-400 hover:text-emerald-300">
-          Back to parties
+          {t('party.backToParties')}
         </Link>
       </div>
     )
@@ -67,7 +69,7 @@ export default function PartyPage() {
         className="mb-4 inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-white"
       >
         <ArrowLeft className="h-4 w-4" />
-        Back to parties
+        {t('party.backToParties')}
       </Link>
 
       {/* Header card */}
@@ -77,7 +79,7 @@ export default function PartyPage() {
             <h1 className="truncate text-2xl font-bold text-white">{party.name}</h1>
             <div className="mt-1 flex items-center gap-1.5 text-sm text-gray-400">
               <Users className="h-4 w-4" />
-              {party.member_count} {party.member_count === 1 ? 'member' : 'members'}
+              {t('parties.memberCount', { count: party.member_count })}
             </div>
           </div>
           {!party.is_global && (
@@ -87,7 +89,7 @@ export default function PartyPage() {
               className="flex flex-shrink-0 items-center gap-1.5 rounded-lg border border-red-700 px-3 py-1.5 text-sm font-medium text-red-400 transition-colors hover:bg-red-900/30 disabled:opacity-50"
             >
               <LogOut className="h-4 w-4" />
-              Leave
+              {t('party.leave')}
             </button>
           )}
         </div>
@@ -95,14 +97,14 @@ export default function PartyPage() {
         {!party.is_global && (
           <div className="mt-4 flex flex-col gap-2 sm:flex-row">
             <div className="flex flex-1 items-center justify-between gap-2 rounded-lg border border-gray-600 bg-gray-900 px-3 py-2">
-              <span className="text-xs uppercase tracking-wide text-gray-500">Code</span>
+              <span className="text-xs uppercase tracking-wide text-gray-500">{t('party.code')}</span>
               <span className="font-mono text-base font-bold tracking-widest text-emerald-400">
                 {party.invite_code}
               </span>
               <button
                 onClick={() => copy(party.invite_code, 'code')}
                 className="text-gray-400 hover:text-white"
-                aria-label="Copy invite code"
+                aria-label={t('party.copyInviteCode')}
               >
                 {copied === 'code' ? (
                   <Check className="h-4 w-4 text-emerald-400" />
@@ -116,7 +118,7 @@ export default function PartyPage() {
               className="flex items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-500"
             >
               {copied === 'link' ? <Check className="h-4 w-4" /> : <Share2 className="h-4 w-4" />}
-              {copied === 'link' ? 'Link copied!' : 'Share invite link'}
+              {copied === 'link' ? t('party.linkCopied') : t('party.shareInviteLink')}
             </button>
           </div>
         )}
@@ -125,7 +127,7 @@ export default function PartyPage() {
       </div>
 
       {/* Party leaderboard */}
-      <h2 className="mb-3 mt-6 text-lg font-semibold text-white">Leaderboard</h2>
+      <h2 className="mb-3 mt-6 text-lg font-semibold text-white">{t('party.leaderboard')}</h2>
       <LeaderboardTable
         entries={leaderboard?.entries ?? []}
         currentUserId={currentUser?.id}

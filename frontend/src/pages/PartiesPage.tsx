@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Plus, Users, Globe, ChevronRight } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { useParties, useJoinParty } from '../hooks/useParties'
 import { usePartyLeaderboard } from '../hooks/useLeaderboard'
 import { useTournaments } from '../hooks/useTournaments'
@@ -16,6 +17,7 @@ function PartyRow({
   tournamentId?: string
   currentUserId?: string
 }) {
+  const { t } = useTranslation()
   // Resolve the user's rank within this party for the active tournament.
   const { data: leaderboard } = usePartyLeaderboard(
     party.id,
@@ -39,14 +41,14 @@ function PartyRow({
         <div className="min-w-0">
           <div className="truncate font-semibold text-white">{party.name}</div>
           <div className="text-xs text-gray-400">
-            {party.member_count} {party.member_count === 1 ? 'member' : 'members'}
+            {t('parties.memberCount', { count: party.member_count })}
           </div>
         </div>
       </div>
       <div className="flex flex-shrink-0 items-center gap-3">
         {myRank != null && (
           <div className="text-right">
-            <div className="text-xs text-gray-500">Your rank</div>
+            <div className="text-xs text-gray-500">{t('parties.yourRank')}</div>
             <div className="font-bold text-emerald-400 tabular-nums">#{myRank}</div>
           </div>
         )}
@@ -57,6 +59,7 @@ function PartyRow({
 }
 
 export default function PartiesPage() {
+  const { t } = useTranslation()
   const { data: parties = [], isLoading } = useParties()
   const { data: tournaments = [] } = useTournaments()
   const { data: currentUser } = useCurrentUser()
@@ -84,7 +87,7 @@ export default function PartiesPage() {
     } catch (err: unknown) {
       setError(
         (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ??
-          'Could not join party. Check the code and try again.',
+          t('parties.joinFailed'),
       )
     }
   }
@@ -92,24 +95,24 @@ export default function PartiesPage() {
   return (
     <div className="mx-auto max-w-2xl pb-24">
       <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-white">Parties</h1>
+        <h1 className="text-2xl font-bold text-white">{t('parties.title')}</h1>
         <Link
           to="/parties/create"
           className="flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-500"
         >
           <Plus className="h-4 w-4" />
-          Create Party
+          {t('parties.create')}
         </Link>
       </div>
 
       {/* Join with code */}
       <form onSubmit={handleJoin} className="mb-6 rounded-xl border border-gray-700 bg-gray-800 p-4">
-        <label className="mb-1.5 block text-sm font-medium text-gray-300">Join with code</label>
+        <label className="mb-1.5 block text-sm font-medium text-gray-300">{t('parties.joinWithCode')}</label>
         <div className="flex gap-2">
           <input
             value={code}
             onChange={(e) => setCode(e.target.value)}
-            placeholder="Enter invite code"
+            placeholder={t('parties.enterCode')}
             className="min-w-0 flex-1 rounded-lg border border-gray-600 bg-gray-700 px-3 py-2 text-white placeholder-gray-500 focus:border-emerald-500 focus:outline-none"
           />
           <button
@@ -117,7 +120,7 @@ export default function PartiesPage() {
             disabled={!code.trim() || joinParty.isPending}
             className="flex-shrink-0 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {joinParty.isPending ? 'Joining…' : 'Join'}
+            {joinParty.isPending ? t('parties.joining') : t('parties.join')}
           </button>
         </div>
         {error && <p className="mt-2 text-sm text-red-400">{error}</p>}
@@ -125,10 +128,10 @@ export default function PartiesPage() {
 
       {/* Party list */}
       {isLoading ? (
-        <div className="py-12 text-center text-gray-400">Loading parties…</div>
+        <div className="py-12 text-center text-gray-400">{t('parties.loading')}</div>
       ) : parties.length === 0 ? (
         <div className="py-12 text-center text-gray-500">
-          You&apos;re not in any parties yet. Create one or join with a code.
+          {t('parties.empty')}
         </div>
       ) : (
         <div className="flex flex-col gap-3">

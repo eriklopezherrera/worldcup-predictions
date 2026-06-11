@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { ChevronDown, ChevronRight, Star, Target, TrendingUp } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { useTournament } from '../hooks/useTournaments'
 import { useMatches } from '../hooks/useMatches'
 import { usePredictionSummary } from '../hooks/usePredictions'
@@ -19,16 +20,6 @@ const STAGE_ORDER: MatchStage[] = [
   'final',
 ]
 
-const STAGE_LABELS: Record<MatchStage, string> = {
-  group_stage: 'Group Stage',
-  round_of_32: 'Round of 32',
-  round_of_16: 'Round of 16',
-  quarter_final: 'Quarter Final',
-  semi_final: 'Semi Final',
-  third_place: 'Third Place Playoff',
-  final: 'Final',
-}
-
 interface Section {
   key: string
   label: string
@@ -36,6 +27,7 @@ interface Section {
 }
 
 export default function TournamentPage() {
+  const { t } = useTranslation()
   const { id } = useParams<{ id: string }>()
   const { data: tournament } = useTournament(id)
   const { data: matches = [], isLoading } = useMatches(id)
@@ -62,11 +54,11 @@ export default function TournamentPage() {
       if (!map.has(sectionKey)) {
         const dayLabel =
           match.stage === 'group_stage' && match.match_day != null
-            ? ` — Matchday ${match.match_day}`
+            ? t('tournament.matchday', { day: match.match_day })
             : ''
         map.set(sectionKey, {
           key: sectionKey,
-          label: STAGE_LABELS[match.stage] + dayLabel,
+          label: t(`stages.${match.stage}`) + dayLabel,
           matches: [],
         })
       }
@@ -81,7 +73,7 @@ export default function TournamentPage() {
       if (stageDiff !== 0) return stageDiff
       return (a.matches[0].match_day ?? 0) - (b.matches[0].match_day ?? 0)
     })
-  }, [matches])
+  }, [matches, t])
 
   const toggleSection = (key: string) => {
     setOpenSections(prev => ({ ...prev, [key]: !(prev[key] ?? true) }))
@@ -94,7 +86,7 @@ export default function TournamentPage() {
       {/* Header */}
       <div className="py-4">
         <h1 className="text-2xl font-bold text-white">
-          {tournament?.name ?? 'Tournament'}
+          {tournament?.name ?? t('tournament.fallbackTitle')}
         </h1>
         {tournament?.season && (
           <p className="text-sm text-gray-400 mt-0.5">{tournament.season}</p>
@@ -106,25 +98,25 @@ export default function TournamentPage() {
         <StatCard
           icon={<Target size={14} className="text-emerald-400" />}
           value={`${summary?.predictions_made ?? 0}/${matches.length}`}
-          label="Predictions"
+          label={t('tournament.predictions')}
         />
         <StatCard
           icon={<Star size={14} className="text-yellow-400" />}
           value={summary?.total_points ?? 0}
-          label="Points"
+          label={t('tournament.points')}
         />
         <StatCard
           icon={<TrendingUp size={14} className="text-blue-400" />}
           value={userRank != null ? `#${userRank}` : '—'}
-          label="Global Rank"
+          label={t('tournament.globalRank')}
         />
       </div>
 
       {/* Match sections */}
       {isLoading ? (
-        <div className="text-center py-20 text-gray-400">Loading matches…</div>
+        <div className="text-center py-20 text-gray-400">{t('tournament.loadingMatches')}</div>
       ) : sections.length === 0 ? (
-        <div className="text-center py-20 text-gray-400">No matches yet.</div>
+        <div className="text-center py-20 text-gray-400">{t('tournament.noMatches')}</div>
       ) : (
         sections.map(section => (
           <div key={section.key} className="mb-4">
@@ -135,7 +127,7 @@ export default function TournamentPage() {
               <span className="font-semibold text-white text-sm">{section.label}</span>
               <div className="flex items-center gap-2">
                 <span className="text-xs text-gray-400">
-                  {section.matches.length} match{section.matches.length !== 1 ? 'es' : ''}
+                  {t('tournament.matchCount', { count: section.matches.length })}
                 </span>
                 {isSectionOpen(section.key) ? (
                   <ChevronDown size={16} className="text-gray-400" />

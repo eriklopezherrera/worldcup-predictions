@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 interface CountdownProps {
   kickoffUtc: string
@@ -24,6 +25,7 @@ function computeTimeLeft(kickoffUtc: string): TimeLeft | null {
 }
 
 export default function Countdown({ kickoffUtc }: CountdownProps) {
+  const { t } = useTranslation()
   const [timeLeft, setTimeLeft] = useState<TimeLeft | null>(() => computeTimeLeft(kickoffUtc))
 
   useEffect(() => {
@@ -37,8 +39,8 @@ export default function Countdown({ kickoffUtc }: CountdownProps) {
   const pad = (n: number) => String(n).padStart(2, '0')
   const label =
     timeLeft.h > 0
-      ? `Locks in ${timeLeft.h}h ${pad(timeLeft.m)}m ${pad(timeLeft.s)}s`
-      : `Locks in ${timeLeft.m}m ${pad(timeLeft.s)}s`
+      ? t('countdown.locksInHours', { h: timeLeft.h, m: pad(timeLeft.m), s: pad(timeLeft.s) })
+      : t('countdown.locksInMinutes', { m: timeLeft.m, s: pad(timeLeft.s) })
 
   return (
     <span
