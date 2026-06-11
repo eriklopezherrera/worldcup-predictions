@@ -87,11 +87,17 @@ export default function LeaderboardPage() {
 
   const isGlobal = tab === 'global'
 
+  // The "Global" tab resolves to the tournament's global party (every user is
+  // auto-joined to it), so it reuses the same party-leaderboard endpoint.
   const globalQuery = useGlobalLeaderboard(isGlobal ? tournamentId : undefined)
   const partyQuery = usePartyLeaderboard(isGlobal ? undefined : tab, tournamentId)
 
   const { data, isLoading } = isGlobal ? globalQuery : partyQuery
   const entries = useMemo(() => data?.entries ?? [], [data])
+
+  // Hide the podium until at least one match is scored — otherwise it shows an
+  // arbitrary trio of players tied at 0 points.
+  const hasScores = useMemo(() => entries.some((e) => e.total_points > 0), [entries])
 
   return (
     <div className="mx-auto max-w-2xl pb-24">
@@ -138,7 +144,7 @@ export default function LeaderboardPage() {
           ))}
       </div>
 
-      <Podium entries={entries.slice(0, 3)} />
+      {hasScores && <Podium entries={entries.slice(0, 3)} />}
 
       <LeaderboardTable entries={entries} currentUserId={currentUser?.id} isLoading={isLoading} />
     </div>

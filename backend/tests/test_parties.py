@@ -382,14 +382,17 @@ async def test_leaderboard_tiebreaker_exact_scores(
     assert first["exact_scores"] > second["exact_scores"]
 
 
-async def test_leaderboard_empty_when_no_snapshots(
+async def test_leaderboard_shows_all_members_at_zero_when_unscored(
     auth_client: AsyncClient,
     db: AsyncSession,
     user1: User,
+    user2: User,
     tournament: Tournament,
 ):
-    """Empty leaderboard is returned when no snapshots and no scored predictions exist."""
+    """With no snapshots and nothing scored, every member appears at 0 points
+    (live fallback path) rather than the board being empty."""
     party = await _create_party_db(db, user1)
+    await _add_member(db, party, user2)
 
     resp = await auth_client.get(
         f"/parties/{party.id}/leaderboard",
@@ -397,7 +400,48 @@ async def test_leaderboard_empty_when_no_snapshots(
         headers=_auth(user1),
     )
     assert resp.status_code == 200
-    assert resp.json()["entries"] == []
+    entries = resp.json()["entries"]
+    assert len(entries) == 2
+    assert {e["user_id"] for e in entries} == {str(user1.id), str(user2.id)}
+    for e in entries:
+        assert e["total_points"] == 0
+        assert e["exact_scores"] == 0
+        assert e["predictions_made"] == 0
+        # All tied at zero -> all share rank 1.
+        assert e["rank"] == 1
+
+
+async def test_leaderboard_recompute_seeds_zero_rows_for_all_members(
+    db: AsyncSession,
+    user1: User,
+    user2: User,
+    tournament: Tournament,
+):
+    """The snapshot recompute writes a 0-point row for every party member even
+    when no predictions have been scored."""
+    from app.services.leaderboard_service import recompute_party_leaderboard
+
+    party = await _create_party_db(db, user1)
+    await _add_member(db, party, user2)
+
+    await recompute_party_leaderboard(db, party.id, tournament.id)
+
+    from sqlalchemy import select
+
+    snaps = (
+        await db.execute(
+            select(LeaderboardSnapshot).where(
+                LeaderboardSnapshot.party_id == party.id,
+                LeaderboardSnapshot.tournament_id == tournament.id,
+            )
+        )
+    ).scalars().all()
+    assert {s.user_id for s in snaps} == {user1.id, user2.id}
+    for s in snaps:
+        assert s.total_points == 0
+        assert s.exact_scores == 0
+        assert s.predictions_made == 0
+        assert s.rank == 1
 
 
 async def test_leaderboard_non_member_returns_403(

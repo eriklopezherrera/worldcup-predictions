@@ -311,6 +311,17 @@ async def _live_leaderboard(
         func.sum(case((Prediction.points_exact > 0, 1), else_=0)), 0
     ).label("exact_scores")
 
+    # Start from party members and LEFT JOIN scored predictions so every member
+    # appears, even with zero scored predictions (e.g. before any match is
+    # scored).  The scored + tournament filters live in the join condition, not
+    # a WHERE clause, so non-matching members are kept rather than dropped.
+    pred_join = (
+        Prediction.user_id == PartyMember.user_id
+    ) & Prediction.scored_at.is_not(None)
+    match_join = (Match.id == Prediction.match_id) & (
+        Match.tournament_id == tournament_id
+    )
+
     stmt = (
         select(
             PartyMember.user_id,
@@ -321,14 +332,10 @@ async def _live_leaderboard(
             exact_sc,
             func.count(Prediction.id).label("predictions_made"),
         )
-        .join(Prediction, Prediction.user_id == PartyMember.user_id)
-        .join(Match, Match.id == Prediction.match_id)
         .join(User, User.id == PartyMember.user_id)
-        .where(
-            PartyMember.party_id == party_id,
-            Match.tournament_id == tournament_id,
-            Prediction.scored_at.is_not(None),
-        )
+        .outerjoin(Prediction, pred_join)
+        .outerjoin(Match, match_join)
+        .where(PartyMember.party_id == party_id)
         .group_by(PartyMember.user_id, User.username, User.display_name, User.avatar_url)
         .order_by(text("total_points DESC"), text("exact_scores DESC"))
     )
