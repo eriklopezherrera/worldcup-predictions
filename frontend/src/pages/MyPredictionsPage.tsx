@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { format } from 'date-fns'
-import { Clock, Lock, Star, Target, Trophy } from 'lucide-react'
+import { Star, Target, Trophy } from 'lucide-react'
 import { useTournaments } from '../hooks/useTournaments'
 import { useMatches } from '../hooks/useMatches'
 import { usePredictionSummary } from '../hooks/usePredictions'
+import MatchCard from '../components/MatchCard'
 import type { Match, MatchStage } from '../types'
 
 type FilterTab = 'all' | 'group' | 'knockout' | 'pending' | 'scored'
@@ -148,111 +148,10 @@ export default function MyPredictionsPage() {
       ) : (
         <div className="flex flex-col gap-3">
           {filteredMatches.map(match => (
-            <PredictionCard key={match.id} match={match} />
+            <MatchCard key={match.id} match={match} tournamentId={selectedId!} />
           ))}
         </div>
       )}
     </div>
-  )
-}
-
-function PredictionCard({ match }: { match: Match }) {
-  const pred = match.prediction
-  const isScored = match.status === 'finished'
-  const isPending = match.status === 'scheduled' && !pred
-  const isLive = match.status === 'live'
-  const isLocked = pred?.is_locked && match.status === 'scheduled'
-
-  return (
-    <div className="bg-gray-800 rounded-xl p-4">
-      {/* Top row: date + status badge */}
-      <div className="flex items-center justify-between mb-3">
-        <span className="text-xs text-gray-500">
-          {format(new Date(match.kickoff_utc), 'EEE d MMM, HH:mm')}
-        </span>
-        <div className="flex items-center gap-1.5">
-          {isLive && (
-            <span className="text-xs text-red-400 font-bold animate-pulse">LIVE</span>
-          )}
-          {isPending && (
-            <span className="flex items-center gap-1 text-xs text-gray-400">
-              <Clock size={10} />
-              Pending
-            </span>
-          )}
-          {isLocked && !isLive && (
-            <span className="flex items-center gap-1 text-xs text-yellow-500">
-              <Lock size={10} />
-              Locked
-            </span>
-          )}
-          {isScored && pred && <PointsBadge points={pred.total_points} />}
-          {isScored && !pred && (
-            <span className="text-xs text-gray-500">No prediction · 0 pts</span>
-          )}
-        </div>
-      </div>
-
-      {/* Teams row */}
-      <div className="flex items-center gap-2">
-        {/* Home */}
-        <div className="flex items-center gap-2 flex-1 min-w-0">
-          {match.home_team?.logo_url && (
-            <img
-              src={match.home_team.logo_url}
-              alt=""
-              className="w-6 h-6 object-contain flex-shrink-0"
-            />
-          )}
-          <span className="text-sm text-white font-medium truncate">
-            {match.home_team?.name ?? 'TBD'}
-          </span>
-        </div>
-
-        {/* Score column */}
-        <div className="text-center px-2 flex-shrink-0">
-          {isScored ? (
-            <div className="text-white font-bold tabular-nums">
-              {match.home_score}–{match.away_score}
-            </div>
-          ) : (
-            <div className="text-gray-500 text-xs">vs</div>
-          )}
-          {pred && (
-            <div className="text-gray-500 text-xs mt-0.5 tabular-nums">
-              {pred.predicted_home_score}–{pred.predicted_away_score}
-            </div>
-          )}
-        </div>
-
-        {/* Away */}
-        <div className="flex items-center gap-2 flex-1 min-w-0 justify-end">
-          <span className="text-sm text-white font-medium truncate text-right">
-            {match.away_team?.name ?? 'TBD'}
-          </span>
-          {match.away_team?.logo_url && (
-            <img
-              src={match.away_team.logo_url}
-              alt=""
-              className="w-6 h-6 object-contain flex-shrink-0"
-            />
-          )}
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function PointsBadge({ points }: { points: number }) {
-  const cls =
-    points === 5
-      ? 'text-yellow-400 bg-yellow-400/10 border-yellow-400/30'
-      : points >= 2
-        ? 'text-emerald-400 bg-emerald-400/10 border-emerald-400/30'
-        : 'text-gray-400 bg-gray-700 border-gray-600'
-  return (
-    <span className={`inline-block px-2 py-0.5 rounded border text-xs font-bold ${cls}`}>
-      {points > 0 ? `+${points}` : '0'} pts
-    </span>
   )
 }
