@@ -444,6 +444,44 @@ async def test_leaderboard_recompute_seeds_zero_rows_for_all_members(
         assert s.rank == 1
 
 
+async def test_ensure_global_parties_covers_upcoming_and_backfills_users(
+    db: AsyncSession,
+    user1: User,
+    user2: User,
+):
+    """A global party is created for upcoming tournaments and every existing
+    user is backfilled as a member."""
+    from sqlalchemy import select as _select
+
+    from app.services.party_service import ensure_global_parties
+
+    upcoming = Tournament(name="WC 2026", season="2026", status="upcoming")
+    db.add(upcoming)
+    await db.commit()
+    await db.refresh(upcoming)
+
+    await ensure_global_parties(db)
+
+    global_party = (
+        await db.execute(
+            _select(Party).where(
+                Party.is_global == True,  # noqa: E712
+                Party.tournament_id == upcoming.id,
+            )
+        )
+    ).scalar_one_or_none()
+    assert global_party is not None
+
+    members = (
+        await db.execute(
+            _select(PartyMember.user_id).where(
+                PartyMember.party_id == global_party.id
+            )
+        )
+    ).scalars().all()
+    assert {user1.id, user2.id}.issubset(set(members))
+
+
 async def test_global_leaderboard_shows_all_members(
     auth_client: AsyncClient,
     db: AsyncSession,

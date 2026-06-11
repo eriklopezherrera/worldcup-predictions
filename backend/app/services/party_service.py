@@ -414,8 +414,10 @@ async def _live_leaderboard(
 
 async def ensure_global_parties(db: AsyncSession) -> None:
     """
-    Idempotent: called at app startup.  For each active tournament, create a
-    global party if one doesn't already exist.
+    Idempotent: called at app startup.  For each upcoming or active tournament,
+    create a global party if one doesn't already exist, then backfill every
+    existing user as a member (auto-join otherwise only runs at user creation,
+    so users who signed up before the global party existed would be missing).
     """
     # Get or create the system user used as `created_by` for global parties.
     result = await db.execute(select(User).where(User.cognito_sub == "__SYSTEM__"))
@@ -429,7 +431,11 @@ async def ensure_global_parties(db: AsyncSession) -> None:
         db.add(system_user)
         await db.flush()
 
-    result = await db.execute(select(Tournament).where(Tournament.status == "active"))
+    # A global board is useful before kickoff (people predict ahead of time), so
+    # cover upcoming tournaments too — not just active ones.
+    result = await db.execute(
+        select(Tournament).where(Tournament.status.in_(("upcoming", "active")))
+    )
     tournaments = result.scalars().all()
 
     for tournament in tournaments:
@@ -462,6 +468,27 @@ async def ensure_global_parties(db: AsyncSession) -> None:
             )
         )
 
+    await db.commit()
+
+    # Backfill: ensure every existing (non-system) user belongs to every global
+    # party. Idempotent — on_conflict_do_nothing skips users already joined.
+    global_party_ids = (
+        await db.execute(
+            select(Party.id).where(Party.is_global == True)  # noqa: E712
+        )
+    ).scalars().all()
+    user_ids = (
+        await db.execute(
+            select(User.id).where(User.cognito_sub != "__SYSTEM__")
+        )
+    ).scalars().all()
+    for party_id in global_party_ids:
+        for user_id in user_ids:
+            await db.execute(
+                pg_insert(PartyMember)
+                .values(party_id=party_id, user_id=user_id, role="member")
+                .on_conflict_do_nothing()
+            )
     await db.commit()
 
 
