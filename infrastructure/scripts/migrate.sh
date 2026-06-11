@@ -12,6 +12,10 @@ ENV="${1:-prod}"
 ACTION="${2:-migrate}"
 IDENTIFIER="${3:-}"
 export AWS_PROFILE="${AWS_PROFILE:-worldcup}"
+# Pin the region so the ops Lambda is always resolved in us-east-1, regardless
+# of the caller's default region.
+export AWS_REGION="${AWS_REGION:-us-east-1}"
+export AWS_DEFAULT_REGION="${AWS_DEFAULT_REGION:-$AWS_REGION}"
 
 PAYLOAD="{\"action\": \"$ACTION\"}"
 if [ "$ACTION" = "make_admin" ]; then
