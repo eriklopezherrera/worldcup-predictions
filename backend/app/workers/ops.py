@@ -11,6 +11,9 @@ Actions:
     {"action": "migrate"}                          -> alembic upgrade head
     {"action": "seed"}                             -> load WC2026 teams + matches
     {"action": "make_admin", "identifier": "x@y"}  -> grant admin (``"revoke": true`` to revoke)
+    {"action": "update_match_kickoff",             -> reschedule one fixture
+        "home_team": "Australia", "away_team": "Türkiye",
+        "kickoff": "2026-06-14T04:00:00Z"}
 """
 
 import asyncio
@@ -58,6 +61,12 @@ def handler(event, context):
         from app.workers.make_admin import set_admin
 
         asyncio.run(set_admin(event["identifier"], not event.get("revoke", False)))
+    elif action == "update_match_kickoff":
+        from app.workers.update_match_kickoff import update_kickoff
+
+        asyncio.run(
+            update_kickoff(event["home_team"], event["away_team"], event["kickoff"])
+        )
     else:
         raise ValueError(f"Unknown action: {action!r}")
 
