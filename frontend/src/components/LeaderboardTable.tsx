@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { ChevronUp, ChevronDown, Minus } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { LeaderboardEntry } from '../types'
@@ -125,17 +126,20 @@ export default function LeaderboardTable({
                     </div>
                   </td>
                   <td className="px-3 py-3">
-                    <div className="flex items-center gap-2.5">
+                    <Link
+                      to={`/players/${entry.user_id}`}
+                      className="group flex items-center gap-2.5"
+                    >
                       <Avatar entry={entry} />
                       <span
-                        className={`truncate font-medium ${
+                        className={`truncate font-medium group-hover:underline ${
                           isMe ? 'text-emerald-300' : 'text-white'
                         }`}
                       >
                         {entry.display_name ?? entry.username}
                         {isMe && <span className="ml-1.5 text-xs text-emerald-500">{t('common.you')}</span>}
                       </span>
-                    </div>
+                    </Link>
                   </td>
                   <td className="px-3 py-3 text-right font-bold tabular-nums text-white">
                     {entry.total_points}

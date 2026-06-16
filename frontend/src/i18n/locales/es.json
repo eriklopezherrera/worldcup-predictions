@@ -152,6 +152,16 @@
     "predictions": "Pronósticos",
     "loadMore": "Cargar más ({{count}} restantes)"
   },
+  "player": {
+    "back": "Volver a la clasificación",
+    "totalPoints": "Puntos totales",
+    "exactScores": "Marcadores exactos",
+    "predictions": "Pronósticos",
+    "scoredPredictions": "Pronósticos calificados",
+    "pick": "Pronóstico: {{home}}–{{away}}",
+    "loading": "Cargando pronósticos…",
+    "empty": "Aún no hay pronósticos calificados."
+  },
   "match": {
     "live": "EN VIVO",
     "postponed": "Aplazado",

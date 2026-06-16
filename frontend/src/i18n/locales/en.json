@@ -152,6 +152,16 @@
     "predictions": "Predictions",
     "loadMore": "Load more ({{count}} remaining)"
   },
+  "player": {
+    "back": "Back to leaderboard",
+    "totalPoints": "Total Points",
+    "exactScores": "Exact Scores",
+    "predictions": "Predictions",
+    "scoredPredictions": "Scored predictions",
+    "pick": "Pick: {{home}}–{{away}}",
+    "loading": "Loading predictions…",
+    "empty": "No scored predictions yet."
+  },
   "match": {
     "live": "LIVE",
     "postponed": "Postponed",

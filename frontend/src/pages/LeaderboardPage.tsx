@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { Crown } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useTournaments } from '../hooks/useTournaments'
@@ -35,7 +36,7 @@ function PodiumCard({
   const medal = place === 1 ? '🥇' : place === 2 ? '🥈' : '🥉'
 
   return (
-    <div className={`flex flex-1 flex-col items-center ${styles.order}`}>
+    <Link to={`/players/${entry.user_id}`} className={`flex flex-1 flex-col items-center ${styles.order}`}>
       {place === 1 && <Crown className="mb-1 h-5 w-5 text-yellow-400" />}
       <div className={`relative flex items-center justify-center rounded-full bg-gray-700 font-bold text-white ring-2 ${styles.ring} ${styles.size}`}>
         {entry.avatar_url ? (
@@ -56,7 +57,7 @@ function PodiumCard({
         </span>
         <span className="text-xs text-gray-500">{t('common.points_short')}</span>
       </div>
-    </div>
+    </Link>
   )
 }
 

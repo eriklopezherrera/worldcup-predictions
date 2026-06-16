@@ -20,6 +20,7 @@ import CreatePartyPage from './pages/CreatePartyPage'
 import JoinPartyPage from './pages/JoinPartyPage'
 import PartyPage from './pages/PartyPage'
 import ProfilePage from './pages/ProfilePage'
+import PlayerProfilePage from './pages/PlayerProfilePage'
 import AdminPage from './pages/AdminPage'
 
 const queryClient = new QueryClient({
@@ -79,6 +80,7 @@ export default function App() {
             <Route path="parties/create" element={<CreatePartyPage />} />
             <Route path="parties/:id" element={<PartyPage />} />
             <Route path="profile" element={<ProfilePage />} />
+            <Route path="players/:userId" element={<PlayerProfilePage />} />
             <Route path="admin" element={<AdminPage />} />
           </Route>
 

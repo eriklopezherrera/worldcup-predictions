@@ -8,6 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.match import Match
 from app.models.prediction import Prediction
+from app.models.tournament import Team
+from app.services.match_service import _compute_actual_result, _team_dict
 
 
 def _build_prediction_dict(prediction: Prediction, match: Match) -> dict:
@@ -82,6 +84,63 @@ async def get_user_predictions(
 
     rows = (await db.execute(stmt)).all()
     return [_build_prediction_dict(pred, match) for pred, match in rows]
+
+
+async def get_public_user_predictions(
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    tournament_id: Optional[uuid.UUID] = None,
+) -> list[dict]:
+    """Return another user's predictions that have already been scored.
+
+    Only predictions with ``scored_at`` set are exposed, so picks for matches
+    that haven't been played/scored yet stay private.
+    """
+    stmt = (
+        select(Prediction, Match)
+        .join(Match, Prediction.match_id == Match.id)
+        .where(
+            Prediction.user_id == user_id,
+            Prediction.scored_at.is_not(None),
+        )
+    )
+    if tournament_id:
+        stmt = stmt.where(Match.tournament_id == tournament_id)
+    stmt = stmt.order_by(Match.kickoff_utc)
+
+    rows = (await db.execute(stmt)).all()
+
+    team_ids = {
+        tid
+        for _, match in rows
+        for tid in (match.home_team_id, match.away_team_id)
+        if tid is not None
+    }
+    teams: dict[uuid.UUID, Team] = {}
+    if team_ids:
+        team_result = await db.execute(select(Team).where(Team.id.in_(team_ids)))
+        teams = {t.id: t for t in team_result.scalars()}
+
+    return [
+        {
+            "match_id": match.id,
+            "tournament_id": match.tournament_id,
+            "home_team": _team_dict(teams.get(match.home_team_id)),
+            "away_team": _team_dict(teams.get(match.away_team_id)),
+            "kickoff_utc": match.kickoff_utc,
+            "stage": match.stage,
+            "group_name": match.group_name,
+            "home_score": match.home_score,
+            "away_score": match.away_score,
+            "actual_result": _compute_actual_result(match),
+            "predicted_home_score": pred.predicted_home_score,
+            "predicted_away_score": pred.predicted_away_score,
+            "points_result": pred.points_result,
+            "points_exact": pred.points_exact,
+            "total_points": pred.total_points,
+        }
+        for pred, match in rows
+    ]
 
 
 async def get_prediction_summary(

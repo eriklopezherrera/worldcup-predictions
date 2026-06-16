@@ -68,6 +68,33 @@ export interface PredictionSummary {
   predictions_made: number
 }
 
+/** Public profile of any user — never includes email or private fields. */
+export interface PublicUser {
+  id: string
+  username: string
+  display_name?: string | null
+  avatar_url?: string | null
+}
+
+/** Another player's already-scored prediction with read-only match context. */
+export interface PublicPrediction {
+  match_id: string
+  tournament_id: string
+  home_team: Team | null
+  away_team: Team | null
+  kickoff_utc: string
+  stage: MatchStage
+  group_name?: string | null
+  home_score?: number | null
+  away_score?: number | null
+  actual_result?: string | null
+  predicted_home_score: number
+  predicted_away_score: number
+  points_result: number
+  points_exact: number
+  total_points: number
+}
+
 export interface User {
   id: string
   cognito_sub: string
