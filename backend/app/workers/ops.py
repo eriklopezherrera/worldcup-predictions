@@ -14,6 +14,8 @@ Actions:
     {"action": "update_match_kickoff",             -> reschedule one fixture
         "home_team": "Australia", "away_team": "Türkiye",
         "kickoff": "2026-06-14T04:00:00Z"}
+    {"action": "seed_test_data"}                   -> synthetic players + scored
+                                                      predictions (dev/test only)
 """
 
 import asyncio
@@ -67,6 +69,12 @@ def handler(event, context):
         asyncio.run(
             update_kickoff(event["home_team"], event["away_team"], event["kickoff"])
         )
+    elif action == "seed_test_data":
+        from app.workers import seed_test_data
+
+        result = asyncio.run(seed_test_data.seed())
+        log.info("ops.done", action=action)
+        return {"status": "ok", "action": action, "result": result}
     else:
         raise ValueError(f"Unknown action: {action!r}")
 
