@@ -29,8 +29,11 @@ fi
 
 cd "$FRONTEND_DIR"
 [ -d node_modules ] || npm ci
-# First pass: any build so the FrontendStack asset exists at synth time.
-[ -d dist ] || npm run build
+# First pass: build so the FrontendStack asset exists at synth time. Always
+# rebuild — a leftover dist/ may be baked for a different env (e.g. a prod
+# bundle), and reusing it would deploy the wrong API URL + Cognito IDs. The
+# second pass below rebuilds again with the real outputs anyway.
+npm run build
 
 cd "$INFRA_DIR"
 cdk deploy --all --context env="$ENV" --require-approval never --outputs-file "$OUTPUTS"

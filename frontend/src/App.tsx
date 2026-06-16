@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
 import { useAuthStore } from './stores/authStore'
 import Layout from './components/Layout'
+import PwaUpdatePrompt from './components/PwaUpdatePrompt'
 
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
@@ -51,6 +52,7 @@ export default function App() {
 
   return (
     <QueryClientProvider client={queryClient}>
+      <PwaUpdatePrompt />
       <BrowserRouter>
         <Routes>
           {/* Public routes */}

@@ -107,9 +107,15 @@
     "globalRank": "Global Rank",
     "loadingMatches": "Loading matches…",
     "noMatches": "No matches yet.",
+    "noUpcoming": "No upcoming matches — everything has been played.",
     "matchCount_one": "{{count}} match",
     "matchCount_other": "{{count}} matches",
-    "matchday": " — Matchday {{day}}"
+    "matchday": " — Matchday {{day}}",
+    "filters": {
+      "upcoming": "Upcoming",
+      "finished": "Finished",
+      "all": "All"
+    }
   },
   "stages": {
     "group_stage": "Group Stage",
@@ -159,6 +165,10 @@
     "noPredictionMade": "No prediction made",
     "pointsBadge": "{{points}} pts",
     "failedToSave": "Failed to save"
+  },
+  "pwa": {
+    "newVersion": "A new version is available.",
+    "refresh": "Refresh"
   },
   "countdown": {
     "locksInHours": "Locks in {{h}}h {{m}}m {{s}}s",

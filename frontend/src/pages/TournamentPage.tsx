@@ -8,6 +8,8 @@ import { usePredictionSummary } from '../hooks/usePredictions'
 import { useGlobalLeaderboard } from '../hooks/useLeaderboard'
 import { useCurrentUser } from '../hooks/useUser'
 import MatchCard from '../components/MatchCard'
+import { TIME_FILTER_IDS, filterByTime, isUpcoming } from '../lib/matchFilters'
+import type { TimeFilter } from '../lib/matchFilters'
 import type { Match, MatchStage } from '../types'
 
 const STAGE_ORDER: MatchStage[] = [
@@ -36,16 +38,24 @@ export default function TournamentPage() {
   const { data: currentUser } = useCurrentUser()
 
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({})
+  const [filter, setFilter] = useState<TimeFilter>('upcoming')
 
   const userRank = useMemo(() => {
     if (!leaderboard || !currentUser) return null
     return leaderboard.entries.find(e => e.user_id === currentUser.id)?.rank ?? null
   }, [leaderboard, currentUser])
 
+  const filterCounts = useMemo(() => {
+    const upcoming = matches.filter(isUpcoming).length
+    return { upcoming, finished: matches.length - upcoming, all: matches.length }
+  }, [matches])
+
+  const visibleMatches = useMemo<Match[]>(() => filterByTime(matches, filter), [matches, filter])
+
   const sections = useMemo<Section[]>(() => {
     const map = new Map<string, Section>()
 
-    for (const match of matches) {
+    for (const match of visibleMatches) {
       const sectionKey =
         match.stage === 'group_stage' && match.match_day != null
           ? `${match.stage}-day-${match.match_day}`
@@ -73,7 +83,7 @@ export default function TournamentPage() {
       if (stageDiff !== 0) return stageDiff
       return (a.matches[0].match_day ?? 0) - (b.matches[0].match_day ?? 0)
     })
-  }, [matches, t])
+  }, [visibleMatches, t])
 
   const toggleSection = (key: string) => {
     setOpenSections(prev => ({ ...prev, [key]: !(prev[key] ?? true) }))
@@ -112,11 +122,30 @@ export default function TournamentPage() {
         />
       </div>
 
+      {/* Filter chips */}
+      <div className="flex gap-2 overflow-x-auto pb-2 mb-4 scrollbar-none">
+        {TIME_FILTER_IDS.map(id => (
+          <button
+            key={id}
+            onClick={() => setFilter(id)}
+            className={`px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors flex-shrink-0 ${
+              filter === id
+                ? 'bg-emerald-600 text-white'
+                : 'bg-gray-800 text-gray-400 hover:text-white'
+            }`}
+          >
+            {t(`tournament.filters.${id}`)} {filterCounts[id]}
+          </button>
+        ))}
+      </div>
+
       {/* Match sections */}
       {isLoading ? (
         <div className="text-center py-20 text-gray-400">{t('tournament.loadingMatches')}</div>
       ) : sections.length === 0 ? (
-        <div className="text-center py-20 text-gray-400">{t('tournament.noMatches')}</div>
+        <div className="text-center py-20 text-gray-400">
+          {filter === 'upcoming' ? t('tournament.noUpcoming') : t('tournament.noMatches')}
+        </div>
       ) : (
         sections.map(section => (
           <div key={section.key} className="mb-4">

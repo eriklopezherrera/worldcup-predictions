@@ -107,9 +107,15 @@
     "globalRank": "Posición global",
     "loadingMatches": "Cargando partidos…",
     "noMatches": "Aún no hay partidos.",
+    "noUpcoming": "No hay partidos próximos — ya se jugaron todos.",
     "matchCount_one": "{{count}} partido",
     "matchCount_other": "{{count}} partidos",
-    "matchday": " — Jornada {{day}}"
+    "matchday": " — Jornada {{day}}",
+    "filters": {
+      "upcoming": "Próximos",
+      "finished": "Finalizados",
+      "all": "Todos"
+    }
   },
   "stages": {
     "group_stage": "Fase de grupos",
@@ -159,6 +165,10 @@
     "noPredictionMade": "No hiciste un pronóstico",
     "pointsBadge": "{{points}} pts",
     "failedToSave": "No se pudo guardar"
+  },
+  "pwa": {
+    "newVersion": "Hay una nueva versión disponible.",
+    "refresh": "Actualizar"
   },
   "countdown": {
     "locksInHours": "Se bloquea en {{h}}h {{m}}m {{s}}s",

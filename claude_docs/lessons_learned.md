@@ -501,3 +501,68 @@ for party_id in affected_party_ids:
 2. **Rename `.env.local` → `.env.development.local`** — Vite only loads `*.development.*` files in dev mode (`npm run dev`), so local mock settings are never visible to production builds. Local dev is unaffected.
 
 **Rule:** Never put mock-auth vars in `.env.local`; use `.env.development.local`. Always gate dev-only feature flags on `import.meta.env.DEV` as a second line of defence.
+
+---
+
+*Lessons 37–41 captured from the "show all players on the leaderboard" session (2026-06-10).*
+
+---
+
+## 37. Leaderboards must be member-driven (LEFT JOIN), not prediction-driven (INNER JOIN)
+
+**What happened:** Both the live (`_live_leaderboard`) and snapshot (`recompute_party_leaderboard`) computations started `FROM ... JOIN predictions ... WHERE p.scored_at IS NOT NULL`. The inner join meant a member only appeared once they had a *scored* prediction. Before any match was scored, the board was completely empty — even members who had joined or made (unscored) predictions vanished.
+
+**Fix:** Start `FROM party_members` and `LEFT JOIN` predictions, putting the `scored_at IS NOT NULL` and tournament filters in the **JOIN condition, not a WHERE clause** (a `WHERE` on the right side of an outer join silently turns it back into an inner join). Coalesce sums to 0:
+```python
+.outerjoin(Prediction, (Prediction.user_id == PartyMember.user_id) & Prediction.scored_at.is_not(None))
+```
+
+**Rule:** Any "show everyone, with zeros for those who haven't acted yet" board must anchor on the population table (members), not the activity table (predictions). Filters that should not drop rows belong in the `ON` clause.
+
+---
+
+## 38. The real root cause of the empty global board: `ensure_global_parties` only covered `active` tournaments
+
+**What happened:** After fixing the queries (lesson 37) and adding a server-side global endpoint (lesson 39), the global board was *still* empty. A read-only diagnostic against prod RDS showed there was **no global party at all** — only the user-created party existed. The WC2026 tournament had `status = "upcoming"`, but `ensure_global_parties` filtered `WHERE status == "active"`, so it never created a global party. With nothing to resolve, the board was correctly empty.
+
+**Fix:** Cover upcoming tournaments too — a global board is useful before kickoff:
+```python
+select(Tournament).where(Tournament.status.in_(("upcoming", "active")))
+```
+
+**Rule:** A "global"/tournament-wide aggregate depends on a seed record (the global party) existing. Before assuming a read-path bug, verify the seed data actually exists for the relevant entity *state*. `upcoming` is a first-class state in this project, not a pre-launch placeholder.
+
+---
+
+## 39. A global/tournament-wide board should resolve its party server-side, with no membership gate
+
+**What happened:** The first attempt resolved the global party client-side via `useParties()` (the caller's own membership list) and reused `GET /parties/{id}/leaderboard`, which gates on `_assert_member`. Two failure modes: the global party might not be in the user's list, and even if it were, a non-member gets 403.
+
+**Fix:** Added `GET /tournaments/{id}/leaderboard` that resolves the tournament's global party in the service layer and returns its board with **no membership assertion** (every user is auto-joined anyway). Returns `party_id=null` + empty entries rather than 404 when no global party exists, so the UI shows its empty state cleanly. `LeaderboardResponse.party_id` was made `Optional` to allow this.
+
+**Rule:** Don't make the client discover server-owned singletons (like "the global party") from its own scoped data. Resolve them server-side and don't reuse a membership-gated endpoint for a board everyone is meant to see.
+
+---
+
+## 40. Auto-join-on-signup leaves a backfill gap for records created later
+
+**What happened:** `auto_join_global_parties` only runs when a user is first created (`get_current_user` auto-provision path). Any user who signed up *before* the global party existed would never be a member of it — so even after the party was created, existing users were missing from the global board.
+
+**Fix:** Make `ensure_global_parties` (startup, idempotent) also backfill: join every existing non-system user to every global party, via `pg_insert(...).on_conflict_do_nothing()`. Confirmed in prod the global party went from 0 → 4 members on the next cold start.
+
+**Rule:** Any "auto-join at creation time" rule needs a companion idempotent backfill for the population that predates the joinable thing. Run it at startup so it self-heals on every deploy. (Lambda runs the `lifespan` startup hook on each cold start; a code deploy forces a cold start, so the backfill runs on the first post-deploy request.)
+
+---
+
+## 41. Inspecting private-subnet RDS in prod: add a temporary read-only action to the ops Lambda
+
+**What happened:** RDS is in a private subnet with no direct access (per CLAUDE.md), and there was no JWT handy to hit the API. To find out whether the global party existed, I needed to see the actual prod data. CloudWatch logs only showed request lifecycle, not app state.
+
+**Technique:** Temporarily add a `diagnose` action to `app/workers/ops.py` (the ops Lambda already lives in the VPC and uses `AsyncSessionLocal`), deploy *only* the API stack (`cdk deploy worldcup-prod-api`, ~25-40s, no frontend rebuild), invoke it, read the JSON, then **revert the action and redeploy** to strip it from prod. Keep the diagnostic out of any commit.
+
+**Gotchas:**
+- Git-Bash mangles `/aws/lambda/...` log-group paths into Windows mount paths (`C:/Program Files/Git/aws/...`). Use PowerShell for `aws logs` calls.
+- PowerShell mangles inline single-quoted JSON payloads. Write the payload to a temp file and pass `--payload file://...` instead.
+- The ops Lambda has its own handler and does **not** run the API's `lifespan` startup hook, so it reads the DB the API startup wrote to — a clean separate read path.
+
+**Rule:** For one-off prod data inspection behind a private subnet, the ops Lambda is the right tool. Treat the diagnostic as scaffolding: never commit it, and always redeploy to remove it from the live function once done.

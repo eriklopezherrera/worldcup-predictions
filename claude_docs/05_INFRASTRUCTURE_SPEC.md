@@ -300,6 +300,45 @@ from `outputs-{env}.json` → `npm run build` → redeploy the frontend stack.
 After a first deploy: `./scripts/migrate.sh prod` then
 `./scripts/migrate.sh prod seed` (see `03_DATA_LOADING_SPEC.md`).
 
+## Dev Environment (testing changes against live prod)
+
+Every stack is parameterized by `env_name`, so a dev environment is a fully
+isolated parallel copy (`worldcup-dev-*`) with its own RDS, Redis, Cognito pool,
+and CloudFront — prod is never touched.
+
+### Stand it up once
+```bash
+cd infrastructure
+./scripts/setup-dev.sh dev          # deploy all stacks + migrate + seed (~15-20 min)
+./scripts/migrate.sh dev make_admin you@example.com
+```
+The 15-20 min is RDS provisioning and only happens here (or after a destroy).
+
+### Iterate fast (the normal per-test loop)
+Leave networking + data + auth running and redeploy only code. `cdk deploy`
+skips unchanged stacks, so RDS/Redis are never rebuilt and dev data persists:
+```bash
+./scripts/deploy-dev-code.sh dev              # backend only — ~2 min
+./scripts/deploy-dev-code.sh dev --frontend   # frontend only (two-pass build)
+./scripts/deploy-dev-code.sh dev --all        # both
+```
+
+### Decommission when done for a while
+Dev costs ~$32/mo running (RDS $15 + Redis $12 + NAT $5 — these are coupled to
+keeping RDS alive; the Lambda/API/S3/CloudFront parts are <$1). Tear it all down
+to stop the cost (loses RDS data + Cognito accounts; next stand-up is ~15-20 min
+again):
+```bash
+./scripts/destroy.sh dev
+```
+`destroy.sh` force-purges the `worldcup/dev/db-admin` secret — otherwise Secrets
+Manager keeps it for a 7-day recovery window and a rebuild within that window
+fails with "secret already scheduled for deletion". Dev's Cognito pool and RDS
+use `RemovalPolicy.DESTROY` (prod uses `RETAIN`) so the teardown is clean.
+
+> Tear-down is **not** a per-test step — only redeploy code between tests.
+> Tearing down the stateless stacks saves <$1/mo but reintroduces the RDS wait.
+
 ## Cost Estimate (prod, ~50 users)
 | Service | Monthly |
 |---|---|

@@ -11,7 +11,10 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: 'autoUpdate',
+      // 'prompt' (not autoUpdate): when a new build is detected we surface a
+      // "new version" toast and let the user trigger the reload — see
+      // components/PwaUpdatePrompt.tsx.
+      registerType: 'prompt',
       manifest: {
         name: 'World Cup Predictions',
         short_name: 'WC Picks',

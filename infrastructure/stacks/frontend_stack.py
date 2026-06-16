@@ -1,9 +1,20 @@
-from aws_cdk import CfnOutput, RemovalPolicy, Stack
+from aws_cdk import CfnOutput, Duration, RemovalPolicy, Stack
 from aws_cdk import aws_cloudfront as cloudfront
 from aws_cdk import aws_cloudfront_origins as origins
 from aws_cdk import aws_s3 as s3
 from aws_cdk import aws_s3_deployment as s3deploy
 from constructs import Construct
+
+# The app entry points: never cache-locked so a new deploy is always picked up
+# on the next load. Everything else (hashed /assets bundles, workbox, icons) is
+# content-hashed or stable and can be cached immutably.
+NO_CACHE_FILES = [
+    "index.html",
+    "sw.js",
+    "registerSW.js",
+    "manifest.json",
+    "manifest.webmanifest",
+]
 
 
 class FrontendStack(Stack):
@@ -49,13 +60,33 @@ class FrontendStack(Stack):
             ],
         )
 
+        # Two passes so each file class gets the right Cache-Control. prune is off
+        # on both: old hashed bundles are left in place so a user still running the
+        # previous index.html (cached in their SW) doesn't hit 404s mid-rollout.
         s3deploy.BucketDeployment(
             self,
-            "DeploySite",
+            "DeployAssets",
             sources=[s3deploy.Source.asset("../frontend/dist")],
             destination_bucket=bucket,
+            exclude=NO_CACHE_FILES,
+            prune=False,
+            cache_control=[
+                s3deploy.CacheControl.set_public(),
+                s3deploy.CacheControl.max_age(Duration.days(365)),
+                s3deploy.CacheControl.immutable(),
+            ],
+        )
+        s3deploy.BucketDeployment(
+            self,
+            "DeployEntrypoints",
+            sources=[s3deploy.Source.asset("../frontend/dist")],
+            destination_bucket=bucket,
+            exclude=["*"],
+            include=NO_CACHE_FILES,
+            prune=False,
+            cache_control=[s3deploy.CacheControl.no_cache(), s3deploy.CacheControl.must_revalidate()],
             distribution=distribution,
-            distribution_paths=["/*"],  # invalidate cache on deploy
+            distribution_paths=[f"/{name}" for name in NO_CACHE_FILES],  # invalidate entry points on deploy
         )
 
         self.distribution_domain_name = distribution.distribution_domain_name

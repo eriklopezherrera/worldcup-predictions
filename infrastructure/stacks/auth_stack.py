@@ -26,7 +26,9 @@ class AuthStack(Stack):
                 require_symbols=False,
             ),
             account_recovery=cognito.AccountRecovery.EMAIL_ONLY,
-            removal_policy=RemovalPolicy.RETAIN,  # never destroy user accounts
+            # Prod keeps the pool on cdk destroy; dev/staging are disposable so a
+            # full decommission tears the pool down cleanly (no orphaned pool).
+            removal_policy=RemovalPolicy.RETAIN if env_name == "prod" else RemovalPolicy.DESTROY,
         )
 
         self.client = self.user_pool.add_client(

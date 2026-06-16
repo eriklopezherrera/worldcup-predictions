@@ -5,6 +5,8 @@ import { useTournaments } from '../hooks/useTournaments'
 import { useMatches } from '../hooks/useMatches'
 import { usePredictionSummary } from '../hooks/usePredictions'
 import MatchCard from '../components/MatchCard'
+import { TIME_FILTER_IDS, filterByTime, isUpcoming } from '../lib/matchFilters'
+import type { TimeFilter } from '../lib/matchFilters'
 import type { Match, MatchStage } from '../types'
 
 type FilterTab = 'all' | 'group' | 'knockout' | 'pending' | 'scored'
@@ -30,6 +32,7 @@ export default function MyPredictionsPage() {
   // default (activeTournament.default_prediction_stage) is applied on first
   // load via the effect below, unless the user has already picked a tab.
   const [activeTab, setActiveTab] = useState<FilterTab>('group')
+  const [timeFilter, setTimeFilter] = useState<TimeFilter>('upcoming')
   const userPickedTab = useRef(false)
 
   useEffect(() => {
@@ -54,7 +57,8 @@ export default function MyPredictionsPage() {
   const { data: matches = [], isLoading } = useMatches(selectedId)
   const { data: summary } = usePredictionSummary()
 
-  const filteredMatches = useMemo<Match[]>(() => {
+  // Stage tab first (group/knockout/pending/scored), then the time dimension.
+  const stageMatches = useMemo<Match[]>(() => {
     switch (activeTab) {
       case 'group':
         return matches.filter(m => m.stage === 'group_stage')
@@ -68,6 +72,16 @@ export default function MyPredictionsPage() {
         return matches
     }
   }, [matches, activeTab])
+
+  const timeCounts = useMemo(() => {
+    const upcoming = stageMatches.filter(isUpcoming).length
+    return { upcoming, finished: stageMatches.length - upcoming, all: stageMatches.length }
+  }, [stageMatches])
+
+  const filteredMatches = useMemo<Match[]>(
+    () => filterByTime(stageMatches, timeFilter),
+    [stageMatches, timeFilter],
+  )
 
   return (
     <div className="max-w-2xl mx-auto px-4 pb-24">
@@ -119,8 +133,8 @@ export default function MyPredictionsPage() {
         </div>
       )}
 
-      {/* Filter tabs */}
-      <div className="flex gap-2 overflow-x-auto pb-2 mb-4 scrollbar-none">
+      {/* Stage tabs */}
+      <div className="flex gap-2 overflow-x-auto pb-2 mb-2 scrollbar-none">
         {TAB_IDS.map(id => (
           <button
             key={id}
@@ -132,6 +146,23 @@ export default function MyPredictionsPage() {
             }`}
           >
             {t(`predictions.tabs.${id}`)}
+          </button>
+        ))}
+      </div>
+
+      {/* Time filter chips */}
+      <div className="flex gap-2 overflow-x-auto pb-2 mb-4 scrollbar-none">
+        {TIME_FILTER_IDS.map(id => (
+          <button
+            key={id}
+            onClick={() => setTimeFilter(id)}
+            className={`px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors flex-shrink-0 ${
+              timeFilter === id
+                ? 'bg-emerald-600 text-white'
+                : 'bg-gray-800 text-gray-400 hover:text-white'
+            }`}
+          >
+            {t(`tournament.filters.${id}`)} {timeCounts[id]}
           </button>
         ))}
       </div>
