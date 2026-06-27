@@ -43,7 +43,7 @@ _TOURNAMENT = {
     "name": "FIFA World Cup 2026",
     "season": "2026",
     "country": "USA/Canada/Mexico",
-    "status": "upcoming",
+    "status": "active",
 }
 
 _TEAMS = [

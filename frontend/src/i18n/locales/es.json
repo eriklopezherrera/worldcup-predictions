@@ -95,7 +95,7 @@
     "loadFailed": "No se pudieron cargar los torneos.",
     "empty": "Aún no hay torneos.",
     "status": {
-      "active": "En vivo",
+      "active": "En curso",
       "upcoming": "Próximo",
       "finished": "Finalizado"
     }

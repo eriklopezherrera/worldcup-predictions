@@ -95,7 +95,7 @@
     "loadFailed": "Failed to load tournaments.",
     "empty": "No tournaments yet.",
     "status": {
-      "active": "Live",
+      "active": "Ongoing",
       "upcoming": "Upcoming",
       "finished": "Finished"
     }
