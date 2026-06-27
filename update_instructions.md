@@ -80,3 +80,95 @@ The local DB row was already updated:
 ```sql
 UPDATE tournaments SET status = 'active' WHERE season = '2026';
 ```
+
+---
+
+# Update Instructions — Knockout-stage scoring
+
+Branch: `knockout-updates` · commit `8a606bc` · already deployed to the **dev** env
+(https://d24y5m6nfdyrmr.cloudfront.net).
+
+## What changed
+Knockout matches (Round of 32 → Final) are scored differently from the group
+stage: **1 pt** correct result, **2 pts** exact score, **2 pts** picking the team
+that advances (still 5 max/match). Group stage is unchanged (2 / 3).
+
+- Scores compare against the **end-of-extra-time** result; a penalty shootout is
+  recorded as a **draw** and only resolves who advanced.
+- Decisive predictions infer the advancing pick from the predicted winner;
+  predicted **draws** require the user (and the admin entering the result) to
+  choose who goes through on penalties.
+- New DB columns: `matches.winner_team_id`, `matches.decided_by`,
+  `predictions.predicted_advancing_team_id`, `predictions.points_advancing`; the
+  `predictions.total_points` generated column is redefined to
+  `points_result + points_exact + points_advancing`.
+- Migration: `backend/migrations/versions/e5f6a7b8c9d0_knockout_advancing_scoring.py`
+- Frontend: advancing-team picker for knockout draws, admin winner/`decided_by`
+  controls, advanced-team display on finished cards, and a dismissible
+  knockout-scoring explainer on the home + predictions pages (en/es).
+
+## Applying to production
+
+> **Ordering matters more than last time.** The new API code references the new
+> columns, so once the api/ops Lambda is updated it will error against the old
+> schema until the migration runs. Deploy api → migrate **immediately** →
+> frontend, to keep that window to ~1 minute. Pick a quiet moment.
+>
+> The api and ops Lambdas share one code asset, so there is no way to ship the
+> migration to the ops Lambda without also updating the api Lambda — hence the
+> small unavoidable window. The migration itself is additive and safe.
+
+### Recommended sequence (minimal downtime)
+
+```bash
+# from repo root, on the merged branch, with AWS_PROFILE=worldcup
+
+# 0. Build the frontend once so `cdk synth` has the FrontendStack asset.
+( cd frontend && npm run build )
+
+# 1. Deploy ONLY the api/ops stack (new backend code + the migration file).
+( cd infrastructure && source .venv/Scripts/activate \
+  && cdk deploy worldcup-prod-api --context env=prod --require-approval never --profile worldcup )
+
+# 2. Run the migration immediately (closes the old-schema window).
+infrastructure/scripts/migrate.sh prod migrate
+
+# 3. Full deploy — redeploys api (no-op) and rebuilds/ships the frontend with
+#    the new locale strings and UI.
+infrastructure/scripts/deploy.sh prod
+```
+
+> `migrate.sh prod migrate` runs `alembic upgrade head`, so it applies **all**
+> pending migrations. If the "Ongoing" status fix (`d4e5f6a7b8c9`) above has not
+> been deployed to prod yet, this same step applies it too (it's a guarded no-op
+> if already applied).
+
+### Simpler alternative (slightly longer window)
+
+If you'd rather not run the api stack separately, just run `deploy.sh prod` then
+`migrate.sh prod migrate`. The breakage window then spans the frontend
+second-pass build/deploy (~2–3 min) instead of ~1 min. Same end state.
+
+## Caveat — existing knockout predictions
+No backfill is performed. Any knockout prediction already saved before this
+deploy has `predicted_advancing_team_id = NULL`, so it simply earns 0 of the 2
+advancing points when scored (the result/exact points are unaffected). Per the
+plan this is acceptable because R32 predictions are locked; if you want those
+players to get an advancing pick, reopen the stage so they can re-save before
+kickoff.
+
+## Verify
+- Open the prod app → a knockout match → entering a **draw** shows the
+  "who advances?" picker and blocks save until picked; a **decisive** score shows
+  no picker.
+- As admin → enter a knockout result → advancing control auto-locks to the
+  leading side for decisive scores, requires a pick for draws; regulation /
+  extra-time / penalties chips set `decided_by`.
+- The dismissible knockout-scoring explainer shows on the home + predictions
+  pages.
+- Confirm schema if you like:
+  `SELECT column_name FROM information_schema.columns WHERE table_name='predictions' AND column_name IN ('points_advancing','predicted_advancing_team_id');`
+
+## Cost note (dev)
+The dev env is left running (~$32/mo). Tear it down when done testing:
+`infrastructure/scripts/destroy.sh dev`.
