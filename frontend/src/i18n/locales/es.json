@@ -174,7 +174,9 @@
     "predictionLocked": "Pronóstico bloqueado",
     "noPredictionMade": "No hiciste un pronóstico",
     "pointsBadge": "{{points}} pts",
-    "failedToSave": "No se pudo guardar"
+    "failedToSave": "No se pudo guardar",
+    "teamsTbd": "Equipos por definir",
+    "predictionsNotOpen": "Aún no disponible"
   },
   "pwa": {
     "newVersion": "Hay una nueva versión disponible.",
@@ -256,7 +258,7 @@
     "updateFailed": "No se pudo actualizar tu nombre."
   },
   "admin": {
-    "title": "Admin — Resultados de partidos",
+    "title": "Administración",
     "loading": "Cargando…",
     "filters": {
       "to_score": "Por calificar",
@@ -272,6 +274,35 @@
     "save": "Guardar",
     "saved": "Guardado — {{scored}} pronósticos calificados, {{recomputed}} clasificaciones actualizadas.",
     "saveFailed": "No se pudo guardar: {{error}}",
-    "unknownError": "error desconocido"
+    "unknownError": "error desconocido",
+    "backToHub": "Volver a administración",
+    "scoring": {
+      "title": "Resultados"
+    },
+    "hub": {
+      "scoring": {
+        "title": "Puntuación",
+        "desc": "Ingresa los resultados finales y actualiza las clasificaciones"
+      },
+      "games": {
+        "title": "Editar partidos",
+        "desc": "Reprograma partidos, asigna equipos y abre las etapas de predicción"
+      }
+    },
+    "games": {
+      "title": "Editar partidos",
+      "fixtures": "Partidos",
+      "showAll": "Ver todos",
+      "showUpcoming": "Solo próximos",
+      "stagePanel": "Etapas de predicción",
+      "stageMeta": "{{teamsSet}}/{{total}} equipos asignados",
+      "partialOpen": "· {{open}} abiertos",
+      "open": "Abrir",
+      "close": "Cerrar",
+      "closed": "Cerrado",
+      "vs": "vs",
+      "saved": "Guardado",
+      "kickoffAria": "Fecha y hora de inicio"
+    }
   }
 }

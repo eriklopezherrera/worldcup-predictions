@@ -29,6 +29,16 @@ export interface Team {
   logo_url?: string | null
 }
 
+export interface TournamentTeam extends Team {
+  group_name?: string | null
+}
+
+/** Tournament with its team roster — returned by GET /tournaments/:id. */
+export interface TournamentDetail extends Tournament {
+  country?: string | null
+  teams: TournamentTeam[]
+}
+
 export interface Match {
   id: string
   tournament_id: string
@@ -46,6 +56,8 @@ export interface Match {
   away_score_ht?: number | null
   status: MatchStatus
   is_locked?: boolean
+  /** When false, predictions are not yet open for this match (admin-gated). */
+  predictions_open: boolean
   actual_result?: string | null
   /** Mapped from the API's `my_prediction` field in useMatches. */
   prediction?: Prediction | null

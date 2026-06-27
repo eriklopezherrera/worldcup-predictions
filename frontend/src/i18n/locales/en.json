@@ -174,7 +174,9 @@
     "predictionLocked": "Prediction locked",
     "noPredictionMade": "No prediction made",
     "pointsBadge": "{{points}} pts",
-    "failedToSave": "Failed to save"
+    "failedToSave": "Failed to save",
+    "teamsTbd": "Teams TBD",
+    "predictionsNotOpen": "Not open yet"
   },
   "pwa": {
     "newVersion": "A new version is available.",
@@ -256,7 +258,7 @@
     "updateFailed": "Could not update your name."
   },
   "admin": {
-    "title": "Admin — Match Results",
+    "title": "Admin",
     "loading": "Loading…",
     "filters": {
       "to_score": "To score",
@@ -272,6 +274,35 @@
     "save": "Save",
     "saved": "Saved — {{scored}} predictions scored, {{recomputed}} leaderboards updated.",
     "saveFailed": "Failed to save: {{error}}",
-    "unknownError": "unknown error"
+    "unknownError": "unknown error",
+    "backToHub": "Back to admin",
+    "scoring": {
+      "title": "Match Results"
+    },
+    "hub": {
+      "scoring": {
+        "title": "Scoring",
+        "desc": "Enter final scores and update the leaderboards"
+      },
+      "games": {
+        "title": "Edit games",
+        "desc": "Reschedule fixtures, set teams, and open prediction stages"
+      }
+    },
+    "games": {
+      "title": "Edit games",
+      "fixtures": "Fixtures",
+      "showAll": "Show all",
+      "showUpcoming": "Upcoming only",
+      "stagePanel": "Prediction stages",
+      "stageMeta": "{{teamsSet}}/{{total}} teams set",
+      "partialOpen": "· {{open}} open",
+      "open": "Open",
+      "close": "Close",
+      "closed": "Closed",
+      "vs": "vs",
+      "saved": "Saved",
+      "kickoffAria": "Kickoff date and time"
+    }
   }
 }

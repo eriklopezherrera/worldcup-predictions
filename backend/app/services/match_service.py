@@ -3,7 +3,8 @@ from datetime import datetime, timezone
 from typing import Optional
 
 import structlog
-from sqlalchemy import and_, select
+from fastapi import HTTPException
+from sqlalchemy import and_, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.match import Match
@@ -70,6 +71,7 @@ def _build_match_dict(
         "away_score": match.away_score,
         "status": match.status,
         "is_locked": match.kickoff_utc <= datetime.now(timezone.utc),
+        "predictions_open": match.predictions_open,
         "actual_result": _compute_actual_result(match),
         "my_prediction": _prediction_dict(prediction),
     }
@@ -167,6 +169,110 @@ async def get_match(
     home_team = await db.get(Team, match.home_team_id) if match.home_team_id else None
     away_team = await db.get(Team, match.away_team_id) if match.away_team_id else None
     return _build_match_dict(match, home_team, away_team, prediction)
+
+
+async def _validate_team_in_tournament(
+    db: AsyncSession, tournament_id: uuid.UUID, team_id: uuid.UUID
+) -> None:
+    exists = (
+        await db.execute(
+            select(TournamentTeam.team_id).where(
+                TournamentTeam.tournament_id == tournament_id,
+                TournamentTeam.team_id == team_id,
+            )
+        )
+    ).scalar_one_or_none()
+    if exists is None:
+        raise HTTPException(
+            status_code=400, detail="Team is not part of this tournament"
+        )
+
+
+async def update_match(
+    db: AsyncSession,
+    match_id: uuid.UUID,
+    *,
+    user_id: uuid.UUID,
+    kickoff_utc: Optional[datetime] = None,
+    home_team_id: Optional[uuid.UUID] = None,
+    away_team_id: Optional[uuid.UUID] = None,
+    set_home_team: bool = False,
+    set_away_team: bool = False,
+) -> Optional[dict]:
+    """Admin edit of a single fixture (kickoff and/or teams).
+
+    Teams may only be changed while the match has no predictions yet — swapping
+    a team after people have predicted would invalidate their picks. Returns the
+    updated match dict, or None if the match doesn't exist. Raises HTTPException
+    (409) when a team change is blocked, (400) for an invalid team.
+    """
+    match = await db.get(Match, match_id)
+    if match is None:
+        return None
+
+    changing_teams = set_home_team or set_away_team
+    if changing_teams:
+        prediction_count = (
+            await db.execute(
+                select(func.count(Prediction.id)).where(
+                    Prediction.match_id == match_id
+                )
+            )
+        ).scalar_one()
+        if prediction_count > 0:
+            raise HTTPException(
+                status_code=409,
+                detail="Cannot change teams: predictions already exist for this match",
+            )
+
+    if set_home_team:
+        if home_team_id is not None:
+            await _validate_team_in_tournament(db, match.tournament_id, home_team_id)
+        match.home_team_id = home_team_id
+    if set_away_team:
+        if away_team_id is not None:
+            await _validate_team_in_tournament(db, match.tournament_id, away_team_id)
+        match.away_team_id = away_team_id
+    if kickoff_utc is not None:
+        match.kickoff_utc = kickoff_utc
+
+    await db.commit()
+
+    log.info(
+        "match.updated",
+        match_id=str(match_id),
+        kickoff_changed=kickoff_utc is not None,
+        home_team_changed=set_home_team,
+        away_team_changed=set_away_team,
+    )
+    return await get_match(db, match_id, user_id)
+
+
+async def set_stage_predictions_open(
+    db: AsyncSession,
+    tournament_id: uuid.UUID,
+    stage: str,
+    predictions_open: bool,
+) -> dict:
+    """Open or close predictions for every match of a stage in a tournament."""
+    result = await db.execute(
+        update(Match)
+        .where(Match.tournament_id == tournament_id, Match.stage == stage)
+        .values(predictions_open=predictions_open)
+    )
+    await db.commit()
+    log.info(
+        "stage.predictions_set",
+        tournament_id=str(tournament_id),
+        stage=stage,
+        predictions_open=predictions_open,
+        matches_updated=result.rowcount,
+    )
+    return {
+        "stage": stage,
+        "predictions_open": predictions_open,
+        "matches_updated": result.rowcount or 0,
+    }
 
 
 async def set_match_result(

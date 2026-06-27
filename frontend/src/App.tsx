@@ -21,7 +21,9 @@ import JoinPartyPage from './pages/JoinPartyPage'
 import PartyPage from './pages/PartyPage'
 import ProfilePage from './pages/ProfilePage'
 import PlayerProfilePage from './pages/PlayerProfilePage'
-import AdminPage from './pages/AdminPage'
+import AdminHubPage from './pages/AdminHubPage'
+import AdminScoringPage from './pages/AdminScoringPage'
+import AdminGamesPage from './pages/AdminGamesPage'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -81,7 +83,9 @@ export default function App() {
             <Route path="parties/:id" element={<PartyPage />} />
             <Route path="profile" element={<ProfilePage />} />
             <Route path="players/:userId" element={<PlayerProfilePage />} />
-            <Route path="admin" element={<AdminPage />} />
+            <Route path="admin" element={<AdminHubPage />} />
+            <Route path="admin/scoring" element={<AdminScoringPage />} />
+            <Route path="admin/games" element={<AdminGamesPage />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />

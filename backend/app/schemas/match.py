@@ -38,8 +38,33 @@ class MatchResponse(BaseModel):
     away_score: int | None
     status: str
     is_locked: bool
+    predictions_open: bool
     actual_result: str | None  # "home_win" | "away_win" | "draw" | None
     my_prediction: PredictionInMatch | None
+
+
+class MatchUpdateRequest(BaseModel):
+    """Partial admin edit of a fixture. All fields optional; only those provided
+    are changed. Use a sentinel-free approach: omit a field to leave it as-is.
+    To clear a team (set TBD), pass null explicitly via the *_set flags."""
+
+    kickoff_utc: datetime | None = None
+    home_team_id: uuid.UUID | None = None
+    away_team_id: uuid.UUID | None = None
+    # Distinguish "not provided" from "set to null/TBD", since None is a valid
+    # target value for the team fields.
+    set_home_team: bool = False
+    set_away_team: bool = False
+
+
+class StagePredictionsRequest(BaseModel):
+    predictions_open: bool
+
+
+class StagePredictionsResponse(BaseModel):
+    stage: str
+    predictions_open: bool
+    matches_updated: int
 
 
 class MatchResultRequest(BaseModel):

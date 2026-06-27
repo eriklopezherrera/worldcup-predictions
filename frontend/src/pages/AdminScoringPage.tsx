@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
-import { Navigate } from 'react-router-dom'
-import { Check, Loader2, ShieldCheck } from 'lucide-react'
+import { Link, Navigate } from 'react-router-dom'
+import { ArrowLeft, Check, Loader2, ShieldCheck } from 'lucide-react'
 import { format } from 'date-fns'
 import { useTranslation } from 'react-i18next'
 import { useTournaments } from '../hooks/useTournaments'
@@ -15,7 +15,7 @@ type Filter = 'to_score' | 'finished' | 'all'
 
 const FILTER_KEYS: Filter[] = ['to_score', 'finished', 'all']
 
-export default function AdminPage() {
+export default function AdminScoringPage() {
   const { t } = useTranslation()
   const { data: currentUser, isLoading: userLoading } = useCurrentUser()
   const { data: tournaments = [] } = useTournaments()
@@ -50,9 +50,17 @@ export default function AdminPage() {
 
   return (
     <div className="max-w-2xl mx-auto px-4 pb-24">
+      <Link
+        to="/admin"
+        className="inline-flex items-center gap-1.5 pt-4 text-sm text-gray-400 hover:text-white"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        {t('admin.backToHub')}
+      </Link>
+
       <div className="flex items-center gap-2 py-4">
         <ShieldCheck className="h-6 w-6 text-emerald-500" />
-        <h1 className="text-2xl font-bold text-white">{t('admin.title')}</h1>
+        <h1 className="text-2xl font-bold text-white">{t('admin.scoring.title')}</h1>
       </div>
 
       {tournaments.length > 1 && (

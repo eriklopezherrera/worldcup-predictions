@@ -17,7 +17,7 @@ from app.dependencies import get_db, get_redis
 from app.main import app
 from app.models.match import Match
 from app.models.prediction import Prediction
-from app.models.tournament import Tournament
+from app.models.tournament import Team, Tournament
 from app.models.user import User
 from app.services.scoring_service import compute_points
 
@@ -70,11 +70,18 @@ async def tournament(db: AsyncSession) -> Tournament:
 
 @pytest.fixture
 async def future_match(db: AsyncSession, tournament: Tournament) -> Match:
+    home = Team(name="Test Home", short_name="THM")
+    away = Team(name="Test Away", short_name="TAW")
+    db.add_all([home, away])
+    await db.flush()
     m = Match(
         tournament_id=tournament.id,
+        home_team_id=home.id,
+        away_team_id=away.id,
         kickoff_utc=datetime.now(timezone.utc) + timedelta(hours=2),
         stage="group_stage",
         status="scheduled",
+        predictions_open=True,
     )
     db.add(m)
     await db.commit()
@@ -213,6 +220,63 @@ async def test_update_prediction_succeeds_before_kickoff(
     data = response.json()
     assert data["predicted_home_score"] == 3
     assert data["predicted_away_score"] == 2
+
+
+async def test_prediction_on_closed_stage_returns_409(
+    auth_client: AsyncClient,
+    test_user: User,
+    db: AsyncSession,
+    tournament: Tournament,
+):
+    home = Team(name="Closed Home", short_name="CLH")
+    away = Team(name="Closed Away", short_name="CLA")
+    db.add_all([home, away])
+    await db.flush()
+    m = Match(
+        tournament_id=tournament.id,
+        home_team_id=home.id,
+        away_team_id=away.id,
+        kickoff_utc=datetime.now(timezone.utc) + timedelta(hours=2),
+        stage="round_of_32",
+        status="scheduled",
+        predictions_open=False,
+    )
+    db.add(m)
+    await db.commit()
+    await db.refresh(m)
+
+    response = await auth_client.put(
+        f"/predictions/{m.id}",
+        json={"predicted_home_score": 1, "predicted_away_score": 0},
+        headers=_auth(test_user),
+    )
+    assert response.status_code == 409
+
+
+async def test_prediction_on_tbd_match_returns_409(
+    auth_client: AsyncClient,
+    test_user: User,
+    db: AsyncSession,
+    tournament: Tournament,
+):
+    # Stage opened but teams not decided yet — still not predictable.
+    m = Match(
+        tournament_id=tournament.id,
+        kickoff_utc=datetime.now(timezone.utc) + timedelta(hours=2),
+        stage="round_of_32",
+        status="scheduled",
+        predictions_open=True,
+    )
+    db.add(m)
+    await db.commit()
+    await db.refresh(m)
+
+    response = await auth_client.put(
+        f"/predictions/{m.id}",
+        json={"predicted_home_score": 1, "predicted_away_score": 0},
+        headers=_auth(test_user),
+    )
+    assert response.status_code == 409
 
 
 async def test_prediction_locked_returns_423(

@@ -56,6 +56,7 @@ async def match_with_teams(
         stage="group_stage",
         group_name="A",
         status="scheduled",
+        predictions_open=True,
     )
     db.add(m)
     await db.commit()

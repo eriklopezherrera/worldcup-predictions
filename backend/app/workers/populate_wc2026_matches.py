@@ -98,6 +98,10 @@ async def populate(db: AsyncSession) -> None:
                 stage=m["stage"],
                 group_name=group_name,
                 status="scheduled",
+                # Group-stage teams are known up front, so open them for
+                # predictions immediately. Knockout fixtures stay closed until
+                # an admin enables the round.
+                predictions_open=m["stage"] == "group_stage",
             )
         )
         inserted += 1

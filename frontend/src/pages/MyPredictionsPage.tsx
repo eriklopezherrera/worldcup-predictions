@@ -41,14 +41,6 @@ export default function MyPredictionsPage() {
     }
   }, [activeTournament?.id, selectedId])
 
-  // Seed the default tab from the active tournament once it resolves, but never
-  // override a tab the user has manually selected.
-  useEffect(() => {
-    if (!userPickedTab.current && activeTournament?.default_prediction_stage) {
-      setActiveTab(activeTournament.default_prediction_stage)
-    }
-  }, [activeTournament?.default_prediction_stage])
-
   const handleTabClick = (tab: FilterTab) => {
     userPickedTab.current = true
     setActiveTab(tab)
@@ -56,6 +48,27 @@ export default function MyPredictionsPage() {
 
   const { data: matches = [], isLoading } = useMatches(selectedId)
   const { data: summary } = usePredictionSummary()
+
+  // The knockout tab stays hidden until an admin opens at least one knockout
+  // fixture for predictions, then it appears automatically.
+  const knockoutOpen = useMemo(
+    () => matches.some(m => KNOCKOUT_STAGES.includes(m.stage) && m.predictions_open),
+    [matches],
+  )
+  const visibleTabs = useMemo(
+    () => TAB_IDS.filter(id => id !== 'knockout' || knockoutOpen),
+    [knockoutOpen],
+  )
+
+  // Seed the default tab from the active tournament once it resolves, but never
+  // override a tab the user has manually selected.
+  useEffect(() => {
+    const preferred = activeTournament?.default_prediction_stage
+    if (!userPickedTab.current && preferred) {
+      // Don't land on a hidden knockout tab before any knockout stage is open.
+      setActiveTab(preferred === 'knockout' && !knockoutOpen ? 'group' : preferred)
+    }
+  }, [activeTournament?.default_prediction_stage, knockoutOpen])
 
   // Stage tab first (group/knockout/pending/scored), then the time dimension.
   const stageMatches = useMemo<Match[]>(() => {
@@ -135,7 +148,7 @@ export default function MyPredictionsPage() {
 
       {/* Stage tabs */}
       <div className="flex gap-2 overflow-x-auto pb-2 mb-2 scrollbar-none">
-        {TAB_IDS.map(id => (
+        {visibleTabs.map(id => (
           <button
             key={id}
             onClick={() => handleTabClick(id)}

@@ -19,7 +19,7 @@ from app.models.leaderboard import LeaderboardSnapshot
 from app.models.match import Match
 from app.models.party import Party, PartyMember
 from app.models.prediction import Prediction
-from app.models.tournament import Tournament
+from app.models.tournament import Team, Tournament, TournamentTeam
 from app.models.user import User
 
 
@@ -128,6 +128,20 @@ async def party(
     await db.commit()
     await db.refresh(p)
     return p
+
+
+@pytest.fixture
+async def roster(db: AsyncSession, tournament: Tournament) -> list[Team]:
+    """Two teams registered to the tournament, available to assign to a match."""
+    teams = [Team(name="Brazil", short_name="BRA"), Team(name="Spain", short_name="ESP")]
+    db.add_all(teams)
+    await db.flush()
+    for tm in teams:
+        db.add(TournamentTeam(tournament_id=tournament.id, team_id=tm.id, group_name="A"))
+    await db.commit()
+    for tm in teams:
+        await db.refresh(tm)
+    return teams
 
 
 def _auth(user: User) -> dict:
@@ -284,3 +298,146 @@ async def test_set_result_recomputes_party_leaderboard(
     assert snapshot.total_points == 5
     assert snapshot.exact_scores == 1
     assert snapshot.rank == 1
+
+
+# ---------------------------------------------------------------------------
+# Editing a fixture (PUT /admin/matches/{id})
+# ---------------------------------------------------------------------------
+
+
+async def test_update_match_kickoff(
+    auth_client: AsyncClient, admin_user: User, match: Match, db: AsyncSession
+):
+    new_kickoff = datetime(2026, 7, 1, 18, 0, tzinfo=timezone.utc)
+    response = await auth_client.put(
+        f"/admin/matches/{match.id}",
+        json={"kickoff_utc": new_kickoff.isoformat()},
+        headers=_auth(admin_user),
+    )
+    assert response.status_code == 200
+    await db.refresh(match)
+    assert match.kickoff_utc == new_kickoff
+
+
+async def test_update_match_set_teams(
+    auth_client: AsyncClient,
+    admin_user: User,
+    match: Match,
+    roster: list[Team],
+    db: AsyncSession,
+):
+    home, away = roster
+    response = await auth_client.put(
+        f"/admin/matches/{match.id}",
+        json={
+            "set_home_team": True,
+            "home_team_id": str(home.id),
+            "set_away_team": True,
+            "away_team_id": str(away.id),
+        },
+        headers=_auth(admin_user),
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["home_team"]["id"] == str(home.id)
+    assert data["away_team"]["id"] == str(away.id)
+
+
+async def test_update_match_team_not_in_tournament_returns_400(
+    auth_client: AsyncClient, admin_user: User, match: Match
+):
+    response = await auth_client.put(
+        f"/admin/matches/{match.id}",
+        json={
+            "set_home_team": True,
+            "home_team_id": "00000000-0000-0000-0000-000000000000",
+        },
+        headers=_auth(admin_user),
+    )
+    assert response.status_code == 400
+
+
+async def test_update_match_team_change_blocked_with_predictions(
+    auth_client: AsyncClient,
+    admin_user: User,
+    match: Match,
+    prediction: Prediction,
+    roster: list[Team],
+):
+    home, _ = roster
+    response = await auth_client.put(
+        f"/admin/matches/{match.id}",
+        json={"set_home_team": True, "home_team_id": str(home.id)},
+        headers=_auth(admin_user),
+    )
+    assert response.status_code == 409
+
+
+async def test_update_match_kickoff_allowed_with_predictions(
+    auth_client: AsyncClient,
+    admin_user: User,
+    match: Match,
+    prediction: Prediction,
+    db: AsyncSession,
+):
+    new_kickoff = datetime(2026, 7, 2, 12, 0, tzinfo=timezone.utc)
+    response = await auth_client.put(
+        f"/admin/matches/{match.id}",
+        json={"kickoff_utc": new_kickoff.isoformat()},
+        headers=_auth(admin_user),
+    )
+    assert response.status_code == 200
+    await db.refresh(match)
+    assert match.kickoff_utc == new_kickoff
+
+
+async def test_non_admin_cannot_update_match(
+    auth_client: AsyncClient, regular_user: User, match: Match
+):
+    response = await auth_client.put(
+        f"/admin/matches/{match.id}",
+        json={"kickoff_utc": datetime.now(timezone.utc).isoformat()},
+        headers=_auth(regular_user),
+    )
+    assert response.status_code == 403
+
+
+# ---------------------------------------------------------------------------
+# Opening/closing prediction stages
+# ---------------------------------------------------------------------------
+
+
+async def test_set_stage_opens_predictions(
+    auth_client: AsyncClient,
+    admin_user: User,
+    tournament: Tournament,
+    match: Match,
+    db: AsyncSession,
+):
+    # match defaults to closed (predictions_open=False)
+    await db.refresh(match)
+    assert match.predictions_open is False
+
+    response = await auth_client.put(
+        f"/admin/tournaments/{tournament.id}/stages/group_stage",
+        json={"predictions_open": True},
+        headers=_auth(admin_user),
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["matches_updated"] == 1
+    assert data["predictions_open"] is True
+
+    await db.refresh(match)
+    assert match.predictions_open is True
+
+
+async def test_non_admin_cannot_set_stage(
+    auth_client: AsyncClient, regular_user: User, tournament: Tournament
+):
+    response = await auth_client.put(
+        f"/admin/tournaments/{tournament.id}/stages/group_stage",
+        json={"predictions_open": True},
+        headers=_auth(regular_user),
+    )
+    assert response.status_code == 403

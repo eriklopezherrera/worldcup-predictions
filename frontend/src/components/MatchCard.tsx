@@ -74,7 +74,12 @@ function MatchStatusBadge({ status }: { status: Match['status'] }) {
 export default function MatchCard({ match, tournamentId }: MatchCardProps) {
   const { t, i18n } = useTranslation()
   const dateLocale = useDateLocale()
+  // Teams aren't decided yet (knockout placeholder) or the admin hasn't opened
+  // predictions for this match's stage — either way, no predicting allowed.
+  const isTbd = !match.home_team || !match.away_team
+  const predictionsClosed = !match.predictions_open || isTbd
   const isMatchLocked =
+    predictionsClosed ||
     match.prediction?.is_locked ||
     match.status !== 'scheduled' ||
     new Date(match.kickoff_utc) <= new Date()
@@ -111,7 +116,7 @@ export default function MatchCard({ match, tournamentId }: MatchCardProps) {
           {match.venue ? ` · ${match.venue}` : ''}
         </span>
         <MatchStatusBadge status={match.status} />
-        {match.status === 'scheduled' && isMatchLocked && (
+        {match.status === 'scheduled' && isMatchLocked && !predictionsClosed && (
           <span className="flex items-center gap-1 text-xs text-yellow-500">
             <Lock size={10} />
             {t('match.locked')}
@@ -131,6 +136,8 @@ export default function MatchCard({ match, tournamentId }: MatchCardProps) {
             <FinishedScore match={match} />
           ) : match.status === 'live' ? (
             <LiveScore match={match} />
+          ) : predictionsClosed ? (
+            <NotOpenScore isTbd={isTbd} />
           ) : isMatchLocked ? (
             <LockedScore match={match} />
           ) : (
@@ -223,6 +230,18 @@ function LiveScore({ match }: { match: Match }) {
           })}
         </div>
       )}
+    </div>
+  )
+}
+
+function NotOpenScore({ isTbd }: { isTbd: boolean }) {
+  const { t } = useTranslation()
+  return (
+    <div className="text-center text-gray-500">
+      <div className="text-2xl font-bold tabular-nums">–</div>
+      <div className="mt-1 text-xs">
+        {isTbd ? t('match.teamsTbd') : t('match.predictionsNotOpen')}
+      </div>
     </div>
   )
 }

@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import TIMESTAMP, ForeignKey, Index, Integer, String, Text, text
+from sqlalchemy import TIMESTAMP, Boolean, ForeignKey, Index, Integer, String, Text, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -39,4 +39,9 @@ class Match(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     home_score_ht: Mapped[Optional[int]] = mapped_column(Integer)
     away_score_ht: Mapped[Optional[int]] = mapped_column(Integer)
     status: Mapped[str] = mapped_column(String(20), server_default=text("'scheduled'"))
+    # When false, predictions are not yet allowed for this match (e.g. knockout
+    # fixtures whose teams aren't decided). Admins open a whole stage at once.
+    predictions_open: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default=text("false")
+    )
     external_id: Mapped[Optional[int]] = mapped_column(Integer, unique=True)

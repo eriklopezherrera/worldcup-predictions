@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import api from '../lib/apiClient'
-import type { Tournament } from '../types'
+import type { Tournament, TournamentDetail } from '../types'
 
 export function useTournaments() {
   return useQuery<Tournament[]>({
@@ -11,7 +11,7 @@ export function useTournaments() {
 }
 
 export function useTournament(id: string | undefined) {
-  return useQuery<Tournament>({
+  return useQuery<TournamentDetail>({
     queryKey: ['tournaments', id],
     queryFn: () => api.get(`/tournaments/${id}`).then(r => r.data),
     enabled: !!id,

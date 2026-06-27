@@ -42,6 +42,16 @@ async def upsert_prediction(
             detail="Match has already started. Predictions are locked.",
         )
 
+    if (
+        not match.predictions_open
+        or match.home_team_id is None
+        or match.away_team_id is None
+    ):
+        raise HTTPException(
+            status_code=409,
+            detail="Predictions are not open for this match yet.",
+        )
+
     stmt = select(Prediction).where(
         Prediction.user_id == user_id,
         Prediction.match_id == match_id,
