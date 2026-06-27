@@ -12,7 +12,11 @@ from app.models.party import PartyMember
 from app.models.prediction import Prediction
 from app.models.tournament import Team, Tournament, TournamentTeam
 from app.services.leaderboard_service import recompute_party_leaderboard
-from app.services.scoring_service import compute_points
+from app.services.scoring_service import (
+    compute_points,
+    compute_points_knockout,
+    is_knockout_stage,
+)
 
 log = structlog.get_logger()
 
@@ -45,8 +49,10 @@ def _prediction_dict(prediction: Optional[Prediction]) -> Optional[dict]:
         "id": prediction.id,
         "predicted_home_score": prediction.predicted_home_score,
         "predicted_away_score": prediction.predicted_away_score,
+        "predicted_advancing_team_id": prediction.predicted_advancing_team_id,
         "points_result": prediction.points_result,
         "points_exact": prediction.points_exact,
+        "points_advancing": prediction.points_advancing,
         "total_points": prediction.total_points,
     }
 
@@ -69,6 +75,8 @@ def _build_match_dict(
         "match_day": match.match_day,
         "home_score": match.home_score,
         "away_score": match.away_score,
+        "winner_team_id": match.winner_team_id,
+        "decided_by": match.decided_by,
         "status": match.status,
         "is_locked": match.kickoff_utc <= datetime.now(timezone.utc),
         "predictions_open": match.predictions_open,
@@ -275,14 +283,57 @@ async def set_stage_predictions_open(
     }
 
 
+def _resolve_winner_team_id(
+    match: Match, home_score: int, away_score: int, winner_team_id: Optional[uuid.UUID]
+) -> Optional[uuid.UUID]:
+    """Determine which team advanced for a knockout result.
+
+    Decisive score: the leading team — a provided winner_team_id that contradicts
+    it is rejected (guards admin typos). Draw (decided on penalties): the winner
+    must be provided explicitly and be one of the two teams.
+    """
+    if home_score > away_score:
+        if winner_team_id is not None and winner_team_id != match.home_team_id:
+            raise HTTPException(
+                status_code=400,
+                detail="Winning team must be the side that scored more goals.",
+            )
+        return match.home_team_id
+    if away_score > home_score:
+        if winner_team_id is not None and winner_team_id != match.away_team_id:
+            raise HTTPException(
+                status_code=400,
+                detail="Winning team must be the side that scored more goals.",
+            )
+        return match.away_team_id
+
+    if winner_team_id is None:
+        raise HTTPException(
+            status_code=400,
+            detail="A draw was decided on penalties — specify which team advanced.",
+        )
+    if winner_team_id not in (match.home_team_id, match.away_team_id):
+        raise HTTPException(
+            status_code=400,
+            detail="The advancing team must be one of the two teams in this match.",
+        )
+    return winner_team_id
+
+
 async def set_match_result(
     db: AsyncSession,
     match_id: uuid.UUID,
     home_score: int,
     away_score: int,
+    winner_team_id: Optional[uuid.UUID] = None,
+    decided_by: Optional[str] = None,
 ) -> Optional[dict]:
     """Record a final score, (re-)score every prediction for the match, and
     recompute the leaderboards of all affected parties.
+
+    For knockout stages the recorded score is the end-of-extra-time score (a
+    shootout is a draw); ``winner_team_id`` records who advanced and is required
+    when the score is a draw. Group-stage results ignore the winner/decided_by.
 
     Re-scores predictions even if already scored, so an admin can correct a
     score that was entered wrong. Returns None if the match doesn't exist.
@@ -291,8 +342,17 @@ async def set_match_result(
     if match is None:
         return None
 
+    knockout = is_knockout_stage(match.stage)
+    resolved_winner = (
+        _resolve_winner_team_id(match, home_score, away_score, winner_team_id)
+        if knockout
+        else None
+    )
+
     match.home_score = home_score
     match.away_score = away_score
+    match.winner_team_id = resolved_winner
+    match.decided_by = decided_by if knockout else None
     match.status = "finished"
 
     predictions = (
@@ -301,12 +361,27 @@ async def set_match_result(
 
     now = datetime.now(timezone.utc)
     for pred in predictions:
-        pred.points_result, pred.points_exact = compute_points(
-            pred.predicted_home_score,
-            pred.predicted_away_score,
-            home_score,
-            away_score,
-        )
+        if knockout:
+            (
+                pred.points_result,
+                pred.points_exact,
+                pred.points_advancing,
+            ) = compute_points_knockout(
+                pred.predicted_home_score,
+                pred.predicted_away_score,
+                pred.predicted_advancing_team_id,
+                home_score,
+                away_score,
+                resolved_winner,
+            )
+        else:
+            pred.points_result, pred.points_exact = compute_points(
+                pred.predicted_home_score,
+                pred.predicted_away_score,
+                home_score,
+                away_score,
+            )
+            pred.points_advancing = 0
         pred.scored_at = now
 
     await db.commit()
@@ -335,6 +410,8 @@ async def set_match_result(
         "match_id": match.id,
         "home_score": home_score,
         "away_score": away_score,
+        "winner_team_id": resolved_winner,
+        "decided_by": match.decided_by,
         "status": match.status,
         "predictions_scored": len(predictions),
         "leaderboards_recomputed": len(rows),

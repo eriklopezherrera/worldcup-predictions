@@ -86,25 +86,51 @@ export default function MatchCard({ match, tournamentId }: MatchCardProps) {
 
   const [homeVal, setHomeVal] = useState(match.prediction?.predicted_home_score ?? 0)
   const [awayVal, setAwayVal] = useState(match.prediction?.predicted_away_score ?? 0)
+  const [advancingTeamId, setAdvancingTeamId] = useState<string | null>(
+    match.prediction?.predicted_advancing_team_id ?? null,
+  )
+
+  // Knockout stages (everything past the group stage) need an advancing team,
+  // but the user only picks one explicitly when their predicted score is a draw.
+  const isKnockout = match.stage !== 'group_stage'
+  const isDrawPick = homeVal === awayVal
+  const needsAdvancingPick = isKnockout && isDrawPick
 
   // Sync local state when prediction is updated from cache
   useEffect(() => {
     if (match.prediction) {
       setHomeVal(match.prediction.predicted_home_score)
       setAwayVal(match.prediction.predicted_away_score)
+      setAdvancingTeamId(match.prediction.predicted_advancing_team_id ?? null)
     }
-  }, [match.prediction?.predicted_home_score, match.prediction?.predicted_away_score])
+  }, [
+    match.prediction?.predicted_home_score,
+    match.prediction?.predicted_away_score,
+    match.prediction?.predicted_advancing_team_id,
+  ])
 
   const { mutate: save, isPending, isError, reset } = useSavePrediction()
 
   const hasChanges =
     !match.prediction ||
     homeVal !== match.prediction.predicted_home_score ||
-    awayVal !== match.prediction.predicted_away_score
+    awayVal !== match.prediction.predicted_away_score ||
+    (needsAdvancingPick &&
+      advancingTeamId !== (match.prediction.predicted_advancing_team_id ?? null))
+
+  // Block saving a knockout draw until the user picks who advances.
+  const missingAdvancingPick = needsAdvancingPick && !advancingTeamId
 
   const handleSave = () => {
     reset()
-    save({ matchId: match.id, tournamentId, home: homeVal, away: awayVal })
+    save({
+      matchId: match.id,
+      tournamentId,
+      home: homeVal,
+      away: awayVal,
+      // Only the explicit draw pick is sent; decisive picks are inferred server-side.
+      advancingTeamId: needsAdvancingPick ? advancingTeamId : null,
+    })
   }
 
   return (
@@ -155,6 +181,35 @@ export default function MatchCard({ match, tournamentId }: MatchCardProps) {
         />
       </div>
 
+      {/* Knockout draw: pick who advances on penalties (editable only) */}
+      {!isMatchLocked && match.status === 'scheduled' && needsAdvancingPick && (
+        <div className="mt-3 pt-3 border-t border-gray-700">
+          <p className="text-xs text-gray-400 mb-2">{t('match.advancingPrompt')}</p>
+          <div className="grid grid-cols-2 gap-2">
+            {[match.home_team, match.away_team].map(team =>
+              team ? (
+                <button
+                  key={team.id}
+                  onClick={() => setAdvancingTeamId(team.id)}
+                  className={`flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg border text-xs font-medium transition-colors ${
+                    advancingTeamId === team.id
+                      ? 'border-emerald-500 bg-emerald-500/15 text-emerald-300'
+                      : 'border-gray-600 bg-gray-700/40 text-gray-300 hover:border-gray-500'
+                  }`}
+                >
+                  {team.logo_url && (
+                    <img src={team.logo_url} alt="" className="w-4 h-4 object-contain" />
+                  )}
+                  <span className="truncate">
+                    {localizeTeamName(team.name, i18n.language)}
+                  </span>
+                </button>
+              ) : null,
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Footer: countdown + save (editable only) */}
       {!isMatchLocked && match.status === 'scheduled' && (
         <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-700">
@@ -163,9 +218,12 @@ export default function MatchCard({ match, tournamentId }: MatchCardProps) {
             {isError && (
               <span className="text-red-400 text-xs">{t('match.failedToSave')}</span>
             )}
+            {missingAdvancingPick && (
+              <span className="text-yellow-500 text-xs">{t('match.pickAdvancing')}</span>
+            )}
             <button
               onClick={handleSave}
-              disabled={!hasChanges || isPending}
+              disabled={!hasChanges || isPending || missingAdvancingPick}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium transition-colors"
             >
               {isPending && <Loader2 size={12} className="animate-spin" />}
@@ -179,13 +237,29 @@ export default function MatchCard({ match, tournamentId }: MatchCardProps) {
 }
 
 function FinishedScore({ match }: { match: Match }) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const pred = match.prediction
+  const isKnockout = match.stage !== 'group_stage'
+  const advancedTeam =
+    match.winner_team_id === match.home_team?.id
+      ? match.home_team
+      : match.winner_team_id === match.away_team?.id
+        ? match.away_team
+        : null
   return (
     <div className="text-center">
       <div className="text-2xl font-bold text-white tabular-nums">
         {match.home_score} – {match.away_score}
       </div>
+      {isKnockout && advancedTeam && (
+        <div className="text-[11px] text-gray-400 mt-0.5">
+          {t('match.advancedTeam', {
+            team: localizeTeamName(advancedTeam.name, i18n.language),
+          })}
+          {match.decided_by === 'penalties' && ` (${t('match.onPenalties')})`}
+          {match.decided_by === 'extra_time' && ` (${t('match.afterExtraTime')})`}
+        </div>
+      )}
       {pred ? (
         <>
           <div className="text-xs text-gray-500 mt-1">

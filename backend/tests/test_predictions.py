@@ -19,7 +19,7 @@ from app.models.match import Match
 from app.models.prediction import Prediction
 from app.models.tournament import Team, Tournament
 from app.models.user import User
-from app.services.scoring_service import compute_points
+from app.services.scoring_service import compute_points, compute_points_knockout
 
 
 # ---------------------------------------------------------------------------
@@ -80,6 +80,27 @@ async def future_match(db: AsyncSession, tournament: Tournament) -> Match:
         away_team_id=away.id,
         kickoff_utc=datetime.now(timezone.utc) + timedelta(hours=2),
         stage="group_stage",
+        status="scheduled",
+        predictions_open=True,
+    )
+    db.add(m)
+    await db.commit()
+    await db.refresh(m)
+    return m
+
+
+@pytest.fixture
+async def ko_future_match(db: AsyncSession, tournament: Tournament) -> Match:
+    home = Team(name="KO Home", short_name="KOH")
+    away = Team(name="KO Away", short_name="KOA")
+    db.add_all([home, away])
+    await db.flush()
+    m = Match(
+        tournament_id=tournament.id,
+        home_team_id=home.id,
+        away_team_id=away.id,
+        kickoff_utc=datetime.now(timezone.utc) + timedelta(hours=2),
+        stage="round_of_32",
         status="scheduled",
         predictions_open=True,
     )
@@ -172,6 +193,52 @@ def test_compute_points_wrong_predicted_draw():
 def test_compute_points_exact_gives_max_5():
     points_result, points_exact = compute_points(1, 0, 1, 0)
     assert points_result + points_exact == 5
+
+
+# ---------------------------------------------------------------------------
+# Unit tests: compute_points_knockout (1 outcome / 2 exact / 2 advancing)
+# ---------------------------------------------------------------------------
+
+_TEAM_A = uuid.uuid4()
+_TEAM_B = uuid.uuid4()
+
+
+def test_knockout_exact_decisive_gives_max_5():
+    # Predicted A 2-1 (advancing A), actual 2-1, A advanced.
+    result, exact, advancing = compute_points_knockout(2, 1, _TEAM_A, 2, 1, _TEAM_A)
+    assert (result, exact, advancing) == (1, 2, 2)
+    assert result + exact + advancing == 5
+
+
+def test_knockout_right_team_wrong_score():
+    # Predicted A 2-1 (advancing A), actual A 2-0 → outcome + advancing, no exact.
+    result, exact, advancing = compute_points_knockout(2, 1, _TEAM_A, 2, 0, _TEAM_A)
+    assert (result, exact, advancing) == (1, 0, 2)
+
+
+def test_knockout_decisive_pick_but_team_lost_on_penalties():
+    # Predicted A 2-1 (advancing A), actual draw 1-1, B advanced on penalties.
+    result, exact, advancing = compute_points_knockout(2, 1, _TEAM_A, 1, 1, _TEAM_B)
+    assert (result, exact, advancing) == (0, 0, 0)
+
+
+def test_knockout_predicted_draw_correct_advancing_gives_max_5():
+    # Predicted 1-1 (advancing A), actual 1-1, A advanced on penalties.
+    result, exact, advancing = compute_points_knockout(1, 1, _TEAM_A, 1, 1, _TEAM_A)
+    assert (result, exact, advancing) == (1, 2, 2)
+    assert result + exact + advancing == 5
+
+
+def test_knockout_predicted_draw_wrong_advancing():
+    # Predicted 1-1 (advancing A), actual 1-1, B advanced → draw + score, no advancing.
+    result, exact, advancing = compute_points_knockout(1, 1, _TEAM_A, 1, 1, _TEAM_B)
+    assert (result, exact, advancing) == (1, 2, 0)
+
+
+def test_knockout_predicted_draw_but_decisive_result_keeps_advancing():
+    # Predicted 1-1 (advancing A), actual A 2-0 → no draw/score, but A advanced.
+    result, exact, advancing = compute_points_knockout(1, 1, _TEAM_A, 2, 0, _TEAM_A)
+    assert (result, exact, advancing) == (0, 0, 2)
 
 
 # ---------------------------------------------------------------------------
@@ -328,6 +395,93 @@ async def test_prediction_score_out_of_range_returns_422(
         headers=_auth(test_user),
     )
     assert response.status_code == 422
+
+
+# ---------------------------------------------------------------------------
+# Knockout advancing pick on PUT /predictions/{match_id}
+# ---------------------------------------------------------------------------
+
+
+async def test_knockout_decisive_infers_advancing_team(
+    auth_client: AsyncClient,
+    test_user: User,
+    ko_future_match: Match,
+):
+    # Decisive pick — no advancing_team_id sent; it's inferred as the home side.
+    response = await auth_client.put(
+        f"/predictions/{ko_future_match.id}",
+        json={"predicted_home_score": 2, "predicted_away_score": 1},
+        headers=_auth(test_user),
+    )
+    assert response.status_code == 200
+    assert response.json()["predicted_advancing_team_id"] == str(
+        ko_future_match.home_team_id
+    )
+
+
+async def test_knockout_draw_requires_advancing_team(
+    auth_client: AsyncClient,
+    test_user: User,
+    ko_future_match: Match,
+):
+    response = await auth_client.put(
+        f"/predictions/{ko_future_match.id}",
+        json={"predicted_home_score": 1, "predicted_away_score": 1},
+        headers=_auth(test_user),
+    )
+    assert response.status_code == 422
+
+
+async def test_knockout_draw_with_advancing_team_succeeds(
+    auth_client: AsyncClient,
+    test_user: User,
+    ko_future_match: Match,
+):
+    response = await auth_client.put(
+        f"/predictions/{ko_future_match.id}",
+        json={
+            "predicted_home_score": 1,
+            "predicted_away_score": 1,
+            "advancing_team_id": str(ko_future_match.away_team_id),
+        },
+        headers=_auth(test_user),
+    )
+    assert response.status_code == 200
+    assert response.json()["predicted_advancing_team_id"] == str(
+        ko_future_match.away_team_id
+    )
+
+
+async def test_knockout_draw_advancing_team_must_be_in_match(
+    auth_client: AsyncClient,
+    test_user: User,
+    ko_future_match: Match,
+):
+    response = await auth_client.put(
+        f"/predictions/{ko_future_match.id}",
+        json={
+            "predicted_home_score": 0,
+            "predicted_away_score": 0,
+            "advancing_team_id": str(uuid.uuid4()),
+        },
+        headers=_auth(test_user),
+    )
+    assert response.status_code == 422
+
+
+async def test_group_stage_ignores_advancing_team(
+    auth_client: AsyncClient,
+    test_user: User,
+    future_match: Match,
+):
+    # Group stage draw needs no advancing pick and stores none.
+    response = await auth_client.put(
+        f"/predictions/{future_match.id}",
+        json={"predicted_home_score": 1, "predicted_away_score": 1},
+        headers=_auth(test_user),
+    )
+    assert response.status_code == 200
+    assert response.json()["predicted_advancing_team_id"] is None
 
 
 # ---------------------------------------------------------------------------

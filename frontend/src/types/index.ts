@@ -54,6 +54,10 @@ export interface Match {
   away_score?: number | null
   home_score_ht?: number | null
   away_score_ht?: number | null
+  /** Knockout only: the team that advanced (penalty winner for shootouts). */
+  winner_team_id?: string | null
+  /** Knockout only: 'regulation' | 'extra_time' | 'penalties'. */
+  decided_by?: string | null
   status: MatchStatus
   is_locked?: boolean
   /** When false, predictions are not yet open for this match (admin-gated). */
@@ -68,8 +72,11 @@ export interface Prediction {
   match_id: string
   predicted_home_score: number
   predicted_away_score: number
+  /** Knockout only: the team the user expects to advance. */
+  predicted_advancing_team_id?: string | null
   points_result: number
   points_exact: number
+  points_advancing?: number
   total_points: number
   is_locked: boolean
 }
@@ -99,11 +106,15 @@ export interface PublicPrediction {
   group_name?: string | null
   home_score?: number | null
   away_score?: number | null
+  winner_team_id?: string | null
+  decided_by?: string | null
   actual_result?: string | null
   predicted_home_score: number
   predicted_away_score: number
+  predicted_advancing_team_id?: string | null
   points_result: number
   points_exact: number
+  points_advancing?: number
   total_points: number
 }
 

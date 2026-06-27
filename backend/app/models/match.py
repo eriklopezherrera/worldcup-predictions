@@ -38,6 +38,16 @@ class Match(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     away_score: Mapped[Optional[int]] = mapped_column(Integer)
     home_score_ht: Mapped[Optional[int]] = mapped_column(Integer)
     away_score_ht: Mapped[Optional[int]] = mapped_column(Integer)
+    # Knockout only: the team that advanced. For decisive results this equals the
+    # higher-scoring side; for shootouts it is not derivable from the score, so an
+    # admin enters it. Null for group-stage matches and unscored knockout fixtures.
+    winner_team_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("teams.id"),
+    )
+    # Knockout only: how the match was decided — 'regulation' | 'extra_time' |
+    # 'penalties'. Display only; scoring uses winner_team_id + the recorded score.
+    decided_by: Mapped[Optional[str]] = mapped_column(String(20))
     status: Mapped[str] = mapped_column(String(20), server_default=text("'scheduled'"))
     # When false, predictions are not yet allowed for this match (e.g. knockout
     # fixtures whose teams aren't decided). Admins open a whole stage at once.

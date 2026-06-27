@@ -17,8 +17,10 @@ class PredictionInMatch(BaseModel):
     id: uuid.UUID
     predicted_home_score: int
     predicted_away_score: int
+    predicted_advancing_team_id: uuid.UUID | None
     points_result: int
     points_exact: int
+    points_advancing: int
     total_points: int
 
     model_config = ConfigDict(from_attributes=True)
@@ -36,6 +38,8 @@ class MatchResponse(BaseModel):
     match_day: int | None
     home_score: int | None
     away_score: int | None
+    winner_team_id: uuid.UUID | None
+    decided_by: str | None  # "regulation" | "extra_time" | "penalties" | None
     status: str
     is_locked: bool
     predictions_open: bool
@@ -70,12 +74,18 @@ class StagePredictionsResponse(BaseModel):
 class MatchResultRequest(BaseModel):
     home_score: int = Field(ge=0, le=99)
     away_score: int = Field(ge=0, le=99)
+    # Knockout only: who advanced. Required when the score is a draw (penalties);
+    # for decisive scores it's derived and a contradicting value is rejected.
+    winner_team_id: uuid.UUID | None = None
+    decided_by: str | None = None  # "regulation" | "extra_time" | "penalties"
 
 
 class MatchResultResponse(BaseModel):
     match_id: uuid.UUID
     home_score: int
     away_score: int
+    winner_team_id: uuid.UUID | None
+    decided_by: str | None
     status: str
     predictions_scored: int
     leaderboards_recomputed: int

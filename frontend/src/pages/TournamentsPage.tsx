@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { ChevronRight, Trophy } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useTournaments } from '../hooks/useTournaments'
+import KnockoutScoringNotice from '../components/KnockoutScoringNotice'
 import type { Tournament, TournamentStatus } from '../types'
 
 const STATUS_STYLES: Record<TournamentStatus, string> = {
@@ -22,6 +23,8 @@ export default function TournamentsPage() {
           {t('tournaments.subtitle')}
         </p>
       </div>
+
+      <KnockoutScoringNotice />
 
       {isLoading ? (
         <div className="text-center py-20 text-gray-400">{t('tournaments.loading')}</div>

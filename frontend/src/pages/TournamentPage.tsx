@@ -8,6 +8,7 @@ import { usePredictionSummary } from '../hooks/usePredictions'
 import { useGlobalLeaderboard } from '../hooks/useLeaderboard'
 import { useCurrentUser } from '../hooks/useUser'
 import MatchCard from '../components/MatchCard'
+import KnockoutScoringNotice from '../components/KnockoutScoringNotice'
 import { TIME_FILTER_IDS, filterByTime, isUpcoming } from '../lib/matchFilters'
 import type { TimeFilter } from '../lib/matchFilters'
 import type { Match, MatchStage } from '../types'
@@ -102,6 +103,8 @@ export default function TournamentPage() {
           <p className="text-sm text-gray-400 mt-0.5">{tournament.season}</p>
         )}
       </div>
+
+      <KnockoutScoringNotice />
 
       {/* Stats bar */}
       <div className="grid grid-cols-3 gap-3 mb-6">

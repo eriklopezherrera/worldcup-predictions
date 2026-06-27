@@ -27,10 +27,18 @@ class Prediction(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     )
     predicted_home_score: Mapped[int] = mapped_column(Integer)
     predicted_away_score: Mapped[int] = mapped_column(Integer)
+    # Knockout only: the team the user expects to advance. For a decisive
+    # prediction this is inferred (set to the predicted winner) at submission;
+    # for a predicted draw the user picks it explicitly. Null for group stage.
+    predicted_advancing_team_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("teams.id"),
+    )
     points_result: Mapped[int] = mapped_column(Integer, server_default=text("0"))
     points_exact: Mapped[int] = mapped_column(Integer, server_default=text("0"))
+    points_advancing: Mapped[int] = mapped_column(Integer, server_default=text("0"))
     total_points: Mapped[int] = mapped_column(
         Integer,
-        Computed("points_result + points_exact", persisted=True),
+        Computed("points_result + points_exact + points_advancing", persisted=True),
     )
     scored_at: Mapped[Optional[datetime]] = mapped_column(TIMESTAMP(timezone=True))

@@ -43,5 +43,10 @@ async def upsert_prediction(
     current_user: User = Depends(get_current_user),
 ):
     return await prediction_service.upsert_prediction(
-        db, current_user.id, match_id, body.predicted_home_score, body.predicted_away_score
+        db,
+        current_user.id,
+        match_id,
+        body.predicted_home_score,
+        body.predicted_away_score,
+        advancing_team_id=body.advancing_team_id,
     )

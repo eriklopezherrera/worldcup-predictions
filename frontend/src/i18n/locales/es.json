@@ -176,7 +176,12 @@
     "pointsBadge": "{{points}} pts",
     "failedToSave": "No se pudo guardar",
     "teamsTbd": "Equipos por definir",
-    "predictionsNotOpen": "Aún no disponible"
+    "predictionsNotOpen": "Aún no disponible",
+    "advancingPrompt": "Un empate puede definirse por penales — elige quién crees que avanza.",
+    "pickAdvancing": "Elige quién avanza",
+    "advancedTeam": "{{team}} avanzó",
+    "onPenalties": "por penales",
+    "afterExtraTime": "tras la prórroga"
   },
   "pwa": {
     "newVersion": "Hay una nueva versión disponible.",
@@ -303,6 +308,22 @@
       "vs": "vs",
       "saved": "Guardado",
       "kickoffAria": "Fecha y hora de inicio"
+    },
+    "pickAdvancing": "Empate — elige el equipo que avanzó (penales)",
+    "advancingAuto": "Equipo que avanza (según el marcador)",
+    "decidedBy": {
+      "regulation": "Tiempo reglamentario",
+      "extra_time": "Prórroga",
+      "penalties": "Penales"
     }
+  },
+  "knockout": {
+    "title": "La puntuación de eliminatorias es distinta",
+    "intro": "Desde los dieciseisavos de final, cada partido se puntúa:",
+    "p1": "1 pt — resultado correcto (victoria/empate/derrota)",
+    "p2": "2 pts — marcador exacto",
+    "p3": "2 pts — el equipo que avanza",
+    "note": "El marcador cuenta el resultado tras la prórroga; una tanda de penales cuenta como empate. Si predices un empate, elegirás quién avanza. Sigue siendo un máximo de 5 puntos por partido.",
+    "dismiss": "Entendido"
   }
 }

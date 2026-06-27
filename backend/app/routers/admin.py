@@ -26,7 +26,12 @@ async def set_match_result(
     current_user: User = Depends(require_admin),
 ):
     result = await match_service.set_match_result(
-        db, match_id, body.home_score, body.away_score
+        db,
+        match_id,
+        body.home_score,
+        body.away_score,
+        winner_team_id=body.winner_team_id,
+        decided_by=body.decided_by,
     )
     if result is None:
         raise HTTPException(status_code=404, detail="Match not found")

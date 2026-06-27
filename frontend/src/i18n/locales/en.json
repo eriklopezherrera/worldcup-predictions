@@ -176,7 +176,12 @@
     "pointsBadge": "{{points}} pts",
     "failedToSave": "Failed to save",
     "teamsTbd": "Teams TBD",
-    "predictionsNotOpen": "Not open yet"
+    "predictionsNotOpen": "Not open yet",
+    "advancingPrompt": "A draw can go to penalties — pick who you think advances.",
+    "pickAdvancing": "Pick who advances",
+    "advancedTeam": "{{team}} advanced",
+    "onPenalties": "on penalties",
+    "afterExtraTime": "after extra time"
   },
   "pwa": {
     "newVersion": "A new version is available.",
@@ -303,6 +308,22 @@
       "vs": "vs",
       "saved": "Saved",
       "kickoffAria": "Kickoff date and time"
+    },
+    "pickAdvancing": "Draw — pick the team that advanced (penalties)",
+    "advancingAuto": "Advancing team (set by the score)",
+    "decidedBy": {
+      "regulation": "Regulation",
+      "extra_time": "Extra time",
+      "penalties": "Penalties"
     }
+  },
+  "knockout": {
+    "title": "Knockout scoring is different",
+    "intro": "From the Round of 32 onward, each match is scored:",
+    "p1": "1 pt — correct result (win/draw/loss)",
+    "p2": "2 pts — exact score",
+    "p3": "2 pts — the team that advances",
+    "note": "The score counts the result after extra time; a penalty shootout counts as a draw. Predict a draw and you’ll choose who advances. Still 5 points max per match.",
+    "dismiss": "Got it"
   }
 }

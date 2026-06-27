@@ -12,6 +12,8 @@ interface SavePredictionArgs {
   tournamentId: string
   home: number
   away: number
+  /** Knockout draws only: which team the user expects to advance. */
+  advancingTeamId?: string | null
 }
 
 export function usePredictions(filters?: PredictionFilters) {
@@ -34,15 +36,16 @@ export function useSavePrediction() {
   const queryClient = useQueryClient()
 
   return useMutation<Prediction, Error, SavePredictionArgs, { snapshot: Match[] | undefined }>({
-    mutationFn: ({ matchId, home, away }) =>
+    mutationFn: ({ matchId, home, away, advancingTeamId }) =>
       api
         .put<Prediction>(`/predictions/${matchId}`, {
           predicted_home_score: home,
           predicted_away_score: away,
+          advancing_team_id: advancingTeamId ?? null,
         })
         .then(r => r.data),
 
-    onMutate: async ({ matchId, tournamentId, home, away }) => {
+    onMutate: async ({ matchId, tournamentId, home, away, advancingTeamId }) => {
       await queryClient.cancelQueries({ queryKey: ['matches', tournamentId] })
       const snapshot = queryClient.getQueryData<Match[]>(['matches', tournamentId])
       queryClient.setQueryData<Match[]>(['matches', tournamentId], old =>
@@ -55,8 +58,10 @@ export function useSavePrediction() {
                   match_id: matchId,
                   predicted_home_score: home,
                   predicted_away_score: away,
+                  predicted_advancing_team_id: advancingTeamId ?? null,
                   points_result: m.prediction?.points_result ?? 0,
                   points_exact: m.prediction?.points_exact ?? 0,
+                  points_advancing: m.prediction?.points_advancing ?? 0,
                   total_points: m.prediction?.total_points ?? 0,
                   is_locked: m.prediction?.is_locked ?? false,
                 },

@@ -112,22 +112,42 @@ export default function AdminScoringPage() {
   )
 }
 
+const DECIDED_BY_OPTIONS = ['regulation', 'extra_time', 'penalties'] as const
+
 function AdminMatchRow({ match }: { match: Match }) {
   const { t, i18n } = useTranslation()
   const dateLocale = useDateLocale()
   const [home, setHome] = useState(match.home_score ?? '')
   const [away, setAway] = useState(match.away_score ?? '')
+  const [drawWinnerId, setDrawWinnerId] = useState<string | null>(match.winner_team_id ?? null)
+  const [decidedBy, setDecidedBy] = useState<string>(match.decided_by ?? '')
   const { mutate, isPending, isSuccess, isError, error, data } = useSetMatchResult()
 
   const homeName = localizeTeamName(match.home_team?.name, i18n.language) || t('common.tbd')
   const awayName = localizeTeamName(match.away_team?.name, i18n.language) || t('common.tbd')
-  const canSave = home !== '' && away !== '' && !isPending
+
+  const isKnockout = match.stage !== 'group_stage'
+  const scoresEntered = home !== '' && away !== ''
+  const isDraw = scoresEntered && Number(home) === Number(away)
+  // Decisive scores imply the winner; only a draw (penalties) needs a manual pick.
+  const impliedWinnerId = !scoresEntered
+    ? null
+    : Number(home) > Number(away)
+      ? match.home_team?.id ?? null
+      : Number(away) > Number(home)
+        ? match.away_team?.id ?? null
+        : drawWinnerId
+  const needsDrawWinner = isKnockout && isDraw && !drawWinnerId
+
+  const canSave = scoresEntered && !isPending && !needsDrawWinner
 
   const save = () => {
     mutate({
       matchId: match.id,
       home_score: Number(home),
       away_score: Number(away),
+      winner_team_id: isKnockout ? impliedWinnerId : null,
+      decided_by: isKnockout && decidedBy ? decidedBy : null,
     })
   }
 
@@ -176,6 +196,51 @@ function AdminMatchRow({ match }: { match: Match }) {
           {t('admin.save')}
         </button>
       </div>
+
+      {/* Knockout: who advanced + how it was decided */}
+      {isKnockout && match.home_team && match.away_team && (
+        <div className="mt-3 border-t border-gray-700 pt-3">
+          <p className="mb-1.5 text-xs text-gray-400">
+            {isDraw ? t('admin.pickAdvancing') : t('admin.advancingAuto')}
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            {[match.home_team, match.away_team].map(team => {
+              const selected = impliedWinnerId === team.id
+              return (
+                <button
+                  key={team.id}
+                  type="button"
+                  onClick={() => isDraw && setDrawWinnerId(team.id)}
+                  disabled={!isDraw}
+                  className={`truncate rounded-lg border px-2 py-1.5 text-xs font-medium transition-colors ${
+                    selected
+                      ? 'border-emerald-500 bg-emerald-500/15 text-emerald-300'
+                      : 'border-gray-600 bg-gray-900 text-gray-300'
+                  } ${isDraw ? 'hover:border-gray-500' : 'cursor-default opacity-80'}`}
+                >
+                  {localizeTeamName(team.name, i18n.language)}
+                </button>
+              )
+            })}
+          </div>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {DECIDED_BY_OPTIONS.map(opt => (
+              <button
+                key={opt}
+                type="button"
+                onClick={() => setDecidedBy(decidedBy === opt ? '' : opt)}
+                className={`rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
+                  decidedBy === opt
+                    ? 'bg-emerald-600 text-white'
+                    : 'bg-gray-900 text-gray-400 hover:text-white'
+                }`}
+              >
+                {t(`admin.decidedBy.${opt}`)}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {isSuccess && data && (
         <p className="mt-2 text-xs text-emerald-400">

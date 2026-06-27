@@ -9,6 +9,9 @@ from app.schemas.match import TeamSummary
 class PredictionCreate(BaseModel):
     predicted_home_score: int = Field(ge=0, le=30)
     predicted_away_score: int = Field(ge=0, le=30)
+    # Knockout draws only: which team the user expects to advance on penalties.
+    # Ignored for decisive scores (inferred) and group stage.
+    advancing_team_id: uuid.UUID | None = None
 
 
 class PredictionResponse(BaseModel):
@@ -16,8 +19,10 @@ class PredictionResponse(BaseModel):
     match_id: uuid.UUID
     predicted_home_score: int
     predicted_away_score: int
+    predicted_advancing_team_id: uuid.UUID | None
     points_result: int
     points_exact: int
+    points_advancing: int
     total_points: int
     is_locked: bool
 
@@ -46,9 +51,13 @@ class PublicPredictionResponse(BaseModel):
     group_name: str | None
     home_score: int | None
     away_score: int | None
+    winner_team_id: uuid.UUID | None
+    decided_by: str | None
     actual_result: str | None  # "home_win" | "away_win" | "draw" | None
     predicted_home_score: int
     predicted_away_score: int
+    predicted_advancing_team_id: uuid.UUID | None
     points_result: int
     points_exact: int
+    points_advancing: int
     total_points: int

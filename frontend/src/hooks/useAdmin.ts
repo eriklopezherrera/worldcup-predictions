@@ -6,12 +6,18 @@ export interface MatchResultArgs {
   matchId: string
   home_score: number
   away_score: number
+  /** Knockout only: the team that advanced. Required for penalty-shootout draws. */
+  winner_team_id?: string | null
+  /** Knockout only: 'regulation' | 'extra_time' | 'penalties'. */
+  decided_by?: string | null
 }
 
 export interface MatchResultResponse {
   match_id: string
   home_score: number
   away_score: number
+  winner_team_id?: string | null
+  decided_by?: string | null
   status: string
   predictions_scored: number
   leaderboards_recomputed: number
@@ -20,11 +26,13 @@ export interface MatchResultResponse {
 export function useSetMatchResult() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: ({ matchId, home_score, away_score }: MatchResultArgs) =>
+    mutationFn: ({ matchId, home_score, away_score, winner_team_id, decided_by }: MatchResultArgs) =>
       api
         .put<MatchResultResponse>(`/admin/matches/${matchId}/result`, {
           home_score,
           away_score,
+          winner_team_id: winner_team_id ?? null,
+          decided_by: decided_by ?? null,
         })
         .then(r => r.data),
     onSuccess: () => {

@@ -268,6 +268,126 @@ async def test_correcting_result_rescores_predictions(
 
 
 # ---------------------------------------------------------------------------
+# Knockout scoring (1 outcome / 2 exact / 2 advancing)
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+async def ko_match(db: AsyncSession, tournament: Tournament, roster: list[Team]) -> Match:
+    home, away = roster
+    m = Match(
+        tournament_id=tournament.id,
+        home_team_id=home.id,
+        away_team_id=away.id,
+        kickoff_utc=datetime.now(timezone.utc) - timedelta(hours=2),
+        stage="round_of_32",
+        status="scheduled",
+        predictions_open=True,
+    )
+    db.add(m)
+    await db.commit()
+    await db.refresh(m)
+    return m
+
+
+async def test_knockout_decisive_result_scores_advancing(
+    auth_client: AsyncClient,
+    admin_user: User,
+    regular_user: User,
+    ko_match: Match,
+    db: AsyncSession,
+):
+    # Predicted home 2-1 with home advancing inferred.
+    pred = Prediction(
+        user_id=regular_user.id,
+        match_id=ko_match.id,
+        predicted_home_score=2,
+        predicted_away_score=1,
+        predicted_advancing_team_id=ko_match.home_team_id,
+    )
+    db.add(pred)
+    await db.commit()
+
+    # Actual home 2-0 → outcome 1 + advancing 2, no exact.
+    response = await auth_client.put(
+        _url(ko_match), json={"home_score": 2, "away_score": 0}, headers=_auth(admin_user)
+    )
+    assert response.status_code == 200
+    assert response.json()["winner_team_id"] == str(ko_match.home_team_id)
+
+    await db.refresh(pred)
+    assert pred.points_result == 1
+    assert pred.points_exact == 0
+    assert pred.points_advancing == 2
+    assert pred.total_points == 3
+
+
+async def test_knockout_draw_requires_winner(
+    auth_client: AsyncClient, admin_user: User, ko_match: Match
+):
+    response = await auth_client.put(
+        _url(ko_match), json={"home_score": 1, "away_score": 1}, headers=_auth(admin_user)
+    )
+    assert response.status_code == 400
+
+
+async def test_knockout_decisive_winner_mismatch_rejected(
+    auth_client: AsyncClient, admin_user: User, ko_match: Match
+):
+    # Home won 2-0 but winner_team_id says away → contradiction, rejected.
+    response = await auth_client.put(
+        _url(ko_match),
+        json={
+            "home_score": 2,
+            "away_score": 0,
+            "winner_team_id": str(ko_match.away_team_id),
+        },
+        headers=_auth(admin_user),
+    )
+    assert response.status_code == 400
+
+
+async def test_knockout_penalty_draw_scores_advancing(
+    auth_client: AsyncClient,
+    admin_user: User,
+    regular_user: User,
+    ko_match: Match,
+    db: AsyncSession,
+):
+    # Predicted 1-1 with away advancing on penalties.
+    pred = Prediction(
+        user_id=regular_user.id,
+        match_id=ko_match.id,
+        predicted_home_score=1,
+        predicted_away_score=1,
+        predicted_advancing_team_id=ko_match.away_team_id,
+    )
+    db.add(pred)
+    await db.commit()
+
+    # Actual 1-1, away advanced on penalties → full 5 points.
+    response = await auth_client.put(
+        _url(ko_match),
+        json={
+            "home_score": 1,
+            "away_score": 1,
+            "winner_team_id": str(ko_match.away_team_id),
+            "decided_by": "penalties",
+        },
+        headers=_auth(admin_user),
+    )
+    assert response.status_code == 200
+
+    await db.refresh(ko_match)
+    assert ko_match.decided_by == "penalties"
+    await db.refresh(pred)
+    assert pred.points_result == 1
+    assert pred.points_exact == 2
+    assert pred.points_advancing == 2
+    assert pred.total_points == 5
+
+
+# ---------------------------------------------------------------------------
 # Leaderboard recompute
 # ---------------------------------------------------------------------------
 
